@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Jobmate.Api/Jobmate.Api.csproj" />
+    <Project Path="src/Jobmate.Application/Jobmate.Application.csproj" />
+    <Project Path="src/Jobmate.Domain/Jobmate.Domain.csproj" />
+    <Project Path="src/Jobmate.Infrastructure/Jobmate.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Jobmate.Api.Tests/Jobmate.Api.Tests.csproj" />
+    <Project Path="tests/Jobmate.Application.Tests/Jobmate.Application.Tests.csproj" />
+    <Project Path="tests/Jobmate.Infrastructure.Tests/Jobmate.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

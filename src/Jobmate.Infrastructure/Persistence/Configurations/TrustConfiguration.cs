@@ -1,0 +1,137 @@
+using Jobmate.Domain.Entities;
+using Jobmate.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Jobmate.Infrastructure.Persistence.Configurations;
+
+public sealed class VerificationRequestConfiguration : IEntityTypeConfiguration<VerificationRequest>
+{
+    public void Configure(EntityTypeBuilder<VerificationRequest> builder)
+    {
+        builder.ToTable("verification_requests");
+        builder.HasJobmateKey();
+        builder.HasJobmateAuditColumns();
+
+        builder.Property(r => r.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(r => r.Type).HasColumnName("type").HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(r => r.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(r => r.DocumentName).HasColumnName("document_name").HasMaxLength(255);
+        builder.Property(r => r.DocumentUrl).HasColumnName("document_url").HasMaxLength(500);
+        builder.Property(r => r.Note).HasColumnName("note").HasMaxLength(500);
+        builder.Property(r => r.RejectionReason).HasColumnName("rejection_reason").HasMaxLength(500);
+        builder.Property(r => r.ReviewedAt).HasColumnName("reviewed_at").HasColumnType("timestamptz");
+        builder.Property(r => r.ReviewedByUserId).HasColumnName("reviewed_by_user_id");
+
+        builder.HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(r => r.ReviewedBy)
+            .WithMany()
+            .HasForeignKey(r => r.ReviewedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // The admin verification queue, and a user's own request history.
+        builder.HasIndex(r => new { r.Status, r.CreatedAt }).HasDatabaseName("ix_verification_requests_status_created");
+        builder.HasIndex(r => new { r.UserId, r.Type, r.Status })
+            .HasDatabaseName("ix_verification_requests_user_type_status");
+    }
+}
+
+public sealed class DisputeConfiguration : IEntityTypeConfiguration<Dispute>
+{
+    public void Configure(EntityTypeBuilder<Dispute> builder)
+    {
+        builder.ToTable("disputes");
+        builder.HasJobmateKey();
+        builder.HasJobmateAuditColumns();
+
+        builder.Property(d => d.JobId).HasColumnName("job_id").IsRequired();
+        builder.Property(d => d.RaisedByUserId).HasColumnName("raised_by_user_id").IsRequired();
+        builder.Property(d => d.AgainstUserId).HasColumnName("against_user_id").IsRequired();
+        builder.Property(d => d.Reason).HasColumnName("reason").HasConversion<string>().HasMaxLength(30).IsRequired();
+        builder.Property(d => d.Description).HasColumnName("description").HasMaxLength(2000).IsRequired();
+        builder.Property(d => d.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(d => d.Amount).HasColumnName("amount").HasDefaultValue(0);
+        builder.Property(d => d.Resolution).HasColumnName("resolution").HasMaxLength(1000);
+        builder.Property(d => d.ResolvedByUserId).HasColumnName("resolved_by_user_id");
+        builder.Property(d => d.ResolvedAt).HasColumnName("resolved_at").HasColumnType("timestamptz");
+
+        builder.HasOne(d => d.Job)
+            .WithMany(j => j.Disputes)
+            .HasForeignKey(d => d.JobId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(d => d.RaisedBy)
+            .WithMany()
+            .HasForeignKey(d => d.RaisedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(d => d.AgainstUser)
+            .WithMany()
+            .HasForeignKey(d => d.AgainstUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(d => d.ResolvedBy)
+            .WithMany()
+            .HasForeignKey(d => d.ResolvedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(d => new { d.Status, d.CreatedAt }).HasDatabaseName("ix_disputes_status_created");
+        builder.HasIndex(d => new { d.JobId, d.Status }).HasDatabaseName("ix_disputes_job_status");
+    }
+}
+
+public sealed class SavedJobConfiguration : IEntityTypeConfiguration<SavedJob>
+{
+    public void Configure(EntityTypeBuilder<SavedJob> builder)
+    {
+        builder.ToTable("saved_jobs");
+        builder.HasJobmateKey();
+        builder.HasJobmateAuditColumns();
+
+        builder.Property(s => s.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(s => s.JobId).HasColumnName("job_id").IsRequired();
+
+        builder.HasOne(s => s.User)
+            .WithMany()
+            .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(s => s.Job)
+            .WithMany()
+            .HasForeignKey(s => s.JobId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Bookmarking twice is a no-op, which is what the heart button expects.
+        builder.HasIndex(s => new { s.UserId, s.JobId })
+            .IsUnique()
+            .HasDatabaseName("ix_saved_jobs_user_job");
+    }
+}
+
+public sealed class SupportReportConfiguration : IEntityTypeConfiguration<SupportReport>
+{
+    public void Configure(EntityTypeBuilder<SupportReport> builder)
+    {
+        builder.ToTable("support_reports");
+        builder.HasJobmateKey();
+        builder.HasJobmateAuditColumns();
+
+        builder.Property(r => r.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(r => r.Reason).HasColumnName("reason").HasConversion<string>().HasMaxLength(30).IsRequired();
+        builder.Property(r => r.Details).HasColumnName("details").HasMaxLength(2000).IsRequired();
+        builder.Property(r => r.RelatedJobId).HasColumnName("related_job_id");
+        builder.Property(r => r.IsResolved).HasColumnName("is_resolved").HasDefaultValue(false);
+        builder.Property(r => r.ResolvedAt).HasColumnName("resolved_at").HasColumnType("timestamptz");
+
+        builder.HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(r => new { r.IsResolved, r.CreatedAt }).HasDatabaseName("ix_support_reports_resolved_created");
+    }
+}

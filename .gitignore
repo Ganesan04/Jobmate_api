@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+*.user
+logs/
+TestResults/
+
+# User uploads written at runtime by LocalMediaStore; never source.
+src/Jobmate.Api/wwwroot/media/

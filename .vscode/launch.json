@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Jobmate.Api",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/src/Jobmate.Api/Jobmate.Api.csproj",
+      "launchConfigurationId": "TargetFramework=;http"
+    }
+  ]
+}
