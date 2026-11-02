@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Jobmate.Infrastructure.Persistence;
 
@@ -35,5 +36,12 @@ public static class PersistenceConfiguration
                     maxRetryDelay: TimeSpan.FromSeconds(5),
                     errorCodesToAdd: null);
             });
+
+        // Jobs are soft-deleted, and EF warns that rows pointing at a hidden job could
+        // load without it. Only a draft with no applications, bookings or payments can be
+        // deleted (DeleteJobCommand), so the only rows left pointing at one are its own
+        // skills and weekdays, which are only ever read through the job.
+        builder.ConfigureWarnings(warnings =>
+            warnings.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning));
     }
 }

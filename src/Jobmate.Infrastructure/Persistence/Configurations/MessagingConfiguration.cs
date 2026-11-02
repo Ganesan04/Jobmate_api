@@ -16,7 +16,7 @@ public sealed class ConversationConfiguration : IEntityTypeConfiguration<Convers
         builder.Property(c => c.JobId).HasColumnName("job_id");
         builder.Property(c => c.LastMessageAt).HasColumnName("last_message_at").HasColumnType("timestamptz");
         builder.Property(c => c.LastMessagePreview).HasColumnName("last_message_preview").HasMaxLength(200);
-        builder.Property(c => c.LastMessageSenderId).HasColumnName("last_message_sender_id").IsRequired();
+        builder.Property(c => c.LastMessageSenderId).HasColumnName("last_message_sender_user_id").IsRequired();
 
         builder.HasOne(c => c.Job)
             .WithMany()
@@ -71,7 +71,7 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.HasJobmateAuditColumns();
 
         builder.Property(m => m.ConversationId).HasColumnName("conversation_id").IsRequired();
-        builder.Property(m => m.SenderId).HasColumnName("sender_id").IsRequired();
+        builder.Property(m => m.SenderId).HasColumnName("sender_user_id").IsRequired();
         builder.Property(m => m.MessageText).HasColumnName("message_text").HasMaxLength(4000).IsRequired();
         builder.Property(m => m.MessageType).HasColumnName("message_type").HasConversion<string>().HasMaxLength(20);
         builder.Property(m => m.IsRead).HasColumnName("is_read").HasDefaultValue(false);

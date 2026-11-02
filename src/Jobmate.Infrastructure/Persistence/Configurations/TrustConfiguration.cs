@@ -95,6 +95,9 @@ public sealed class SavedJobConfiguration : IEntityTypeConfiguration<SavedJob>
         builder.Property(s => s.UserId).HasColumnName("user_id").IsRequired();
         builder.Property(s => s.JobId).HasColumnName("job_id").IsRequired();
 
+        builder.Property(s => s.DeletedAt).HasColumnName("deleted_at").HasColumnType("timestamptz");
+        builder.HasQueryFilter(s => s.DeletedAt == null);
+
         builder.HasOne(s => s.User)
             .WithMany()
             .HasForeignKey(s => s.UserId)
@@ -105,10 +108,12 @@ public sealed class SavedJobConfiguration : IEntityTypeConfiguration<SavedJob>
             .HasForeignKey(s => s.JobId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Bookmarking twice is a no-op, which is what the heart button expects.
+        // Bookmarking twice is a no-op, which is what the heart button expects. Removed
+        // bookmarks are ignored, so a job can be saved again after it was unsaved.
         builder.HasIndex(s => new { s.UserId, s.JobId })
             .IsUnique()
-            .HasDatabaseName("ix_saved_jobs_user_job");
+            .HasFilter("deleted_at IS NULL")
+            .HasDatabaseName("ux_saved_jobs_user_job");
     }
 }
 

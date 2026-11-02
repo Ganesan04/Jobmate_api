@@ -12,6 +12,7 @@ src/
     Features/<Feature>/     Commands/ Queries/ Validators/
   Jobmate.Infrastructure  EF Core, migrations, JWT, BCrypt, seeders, mock OTP/payment/push
   Jobmate.Api             controllers, middleware, local media storage, Program.cs
+Database/                 schema rules + change checklist (README.md), generated schema.sql snapshot
 tests/                    xUnit: API acceptance (real Postgres), domain rules, infrastructure
 scripts/smoke-test.ps1    end-to-end check against a running API
 ```

@@ -104,7 +104,7 @@ public sealed class WorkerAvailabilitySlotConfiguration : IEntityTypeConfigurati
         builder.ToTable("worker_availability_slots", t =>
             // Matches the app's WorkDay numbering: 1 = Monday ... 7 = Sunday.
             t.HasCheckConstraint(
-                "ck_worker_availability_slots_day_of_week",
+                "chk_worker_availability_slots_day_of_week",
                 "\"day_of_week\" BETWEEN 1 AND 7"));
         builder.HasJobmateKey();
         builder.HasJobmateAuditColumns();

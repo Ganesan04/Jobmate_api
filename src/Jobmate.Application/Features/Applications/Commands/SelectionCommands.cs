@@ -101,7 +101,7 @@ public sealed class SelectWorkerCommandHandler(
             }
             catch (DbUpdateException ex)
             {
-                // The unique index on application_id is the backstop for two identical
+                // The unique index on job_application_id is the backstop for two identical
                 // requests that both read the application as still selectable.
                 throw new ConflictException(
                     "This applicant has already been booked for this job.",

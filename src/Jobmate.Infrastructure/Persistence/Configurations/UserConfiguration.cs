@@ -30,11 +30,6 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.VerificationStatus).HasColumnName("verification_status").HasConversion<string>().HasMaxLength(20);
         builder.Property(u => u.Area).HasColumnName("area").HasMaxLength(120);
 
-        // Kept as text rather than a geometry column: the app only ever does a
-        // bounding-box / haversine comparison, and this keeps the schema portable.
-        builder.Property(u => u.Latitude).HasColumnName("latitude").HasMaxLength(32);
-        builder.Property(u => u.Longitude).HasColumnName("longitude").HasMaxLength(32);
-
         // Login looks the user up by either identifier, and registration must reject
         // duplicates, so both columns carry a unique index.
         builder.HasIndex(u => u.Email).IsUnique().HasFilter("email IS NOT NULL").HasDatabaseName("ix_users_email");
@@ -71,7 +66,7 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         builder.Property(t => t.ExpiresAt).HasColumnName("expires_at").HasColumnType("timestamptz").IsRequired();
         builder.Property(t => t.RevokedAt).HasColumnName("revoked_at").HasColumnType("timestamptz");
         builder.Property(t => t.RevokedReason).HasColumnName("revoked_reason").HasMaxLength(120);
-        builder.Property(t => t.ReplacedByTokenId).HasColumnName("replaced_by_token_id");
+        builder.Property(t => t.ReplacedByTokenId).HasColumnName("replaced_by_refresh_token_id");
         builder.Property(t => t.CreatedByIp).HasColumnName("created_by_ip").HasMaxLength(45);
 
         builder.HasOne(t => t.User)

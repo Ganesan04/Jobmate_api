@@ -36,4 +36,23 @@
     <ProjectReference Include="..\Jobmate.Infrastructure\Jobmate.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!-- A running Jobmate.Api.exe keeps file handles on its own output DLLs, so the
+       copy step fails with MSB3021/MSB3027. Stop any instance launched from this
+       project's output folder before building, so builds never need a manual stop.
+
+       Hooked to PrepareForBuild and CopyFilesToOutputDirectory rather than to
+       CoreBuild: a BeforeTargets hook runs after the target's own DependsOnTargets,
+       and the copy that needs the file released is one of CoreBuild's dependencies —
+       so hooking CoreBuild means this target is only ever reached once the copy has
+       already failed. The second hook repeats the kill immediately before the copy,
+       which covers an instance relaunched by the debugger during the build. -->
+  <Target Name="StopRunningApi" BeforeTargets="PrepareForBuild;CopyFilesToOutputDirectory">
+    <PropertyGroup>
+      <_ApiExePath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(OutputPath)Jobmate.Api.exe'))</_ApiExePath>
+    </PropertyGroup>
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;Get-Process -Name 'Jobmate.Api' -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq '$(_ApiExePath)' } | ForEach-Object { Write-Host ('Stopping Jobmate.Api (PID ' + $_.Id + ') so the build can write its output DLLs'); Stop-Process -Id $_.Id -Force }; exit 0&quot;"
+          ContinueOnError="true"
+          StandardOutputImportance="high" />
+  </Target>
+
 </Project>

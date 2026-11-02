@@ -27,6 +27,7 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
 
             if (failures.Count > 0)
             {
+                
                 throw new ValidationException(failures);
             }
         }

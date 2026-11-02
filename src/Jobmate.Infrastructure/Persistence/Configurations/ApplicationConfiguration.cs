@@ -14,7 +14,7 @@ public sealed class JobApplicationConfiguration : IEntityTypeConfiguration<JobAp
         builder.HasJobmateAuditColumns();
 
         builder.Property(a => a.JobId).HasColumnName("job_id").IsRequired();
-        builder.Property(a => a.WorkerId).HasColumnName("worker_id").IsRequired();
+        builder.Property(a => a.WorkerId).HasColumnName("worker_user_id").IsRequired();
         builder.Property(a => a.Message).HasColumnName("message").HasMaxLength(1000);
         builder.Property(a => a.ExpectedPay).HasColumnName("expected_pay");
         builder.Property(a => a.AvailableFrom).HasColumnName("available_from").HasMaxLength(120);
@@ -60,9 +60,9 @@ public sealed class WorkerAssignmentConfiguration : IEntityTypeConfiguration<Wor
         builder.HasJobmateAuditColumns();
 
         builder.Property(a => a.JobId).HasColumnName("job_id").IsRequired();
-        builder.Property(a => a.WorkerId).HasColumnName("worker_id").IsRequired();
-        builder.Property(a => a.GiverId).HasColumnName("giver_id").IsRequired();
-        builder.Property(a => a.ApplicationId).HasColumnName("application_id").IsRequired();
+        builder.Property(a => a.WorkerId).HasColumnName("worker_user_id").IsRequired();
+        builder.Property(a => a.GiverId).HasColumnName("giver_user_id").IsRequired();
+        builder.Property(a => a.ApplicationId).HasColumnName("job_application_id").IsRequired();
         builder.Property(a => a.AgreedPay).HasColumnName("agreed_pay").IsRequired();
         builder.Property(a => a.OvertimeAmount).HasColumnName("overtime_amount");
         builder.Property(a => a.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
@@ -122,16 +122,16 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         {
             // The worker net amount is derived, so the database checks the arithmetic.
             t.HasCheckConstraint(
-                "ck_payments_total_amount",
+                "chk_payments_total_amount",
                 "\"total_amount\" = \"amount\" + \"overtime_amount\" + \"platform_fee\"");
         });
         builder.HasJobmateKey();
         builder.HasJobmateAuditColumns();
 
         builder.Property(p => p.JobId).HasColumnName("job_id").IsRequired();
-        builder.Property(p => p.WorkerId).HasColumnName("worker_id").IsRequired();
-        builder.Property(p => p.GiverId).HasColumnName("giver_id").IsRequired();
-        builder.Property(p => p.AssignmentId).HasColumnName("assignment_id").IsRequired();
+        builder.Property(p => p.WorkerId).HasColumnName("worker_user_id").IsRequired();
+        builder.Property(p => p.GiverId).HasColumnName("giver_user_id").IsRequired();
+        builder.Property(p => p.AssignmentId).HasColumnName("worker_assignment_id").IsRequired();
         builder.Property(p => p.Amount).HasColumnName("amount").IsRequired();
         builder.Property(p => p.OvertimeAmount).HasColumnName("overtime_amount").HasDefaultValue(0);
         builder.Property(p => p.PlatformFee).HasColumnName("platform_fee").HasDefaultValue(0);
@@ -186,7 +186,7 @@ public sealed class RatingConfiguration : IEntityTypeConfiguration<Rating>
     public void Configure(EntityTypeBuilder<Rating> builder)
     {
         builder.ToTable("ratings", t =>
-            t.HasCheckConstraint("ck_ratings_stars", "\"stars\" BETWEEN 1 AND 5"));
+            t.HasCheckConstraint("chk_ratings_stars", "\"stars\" BETWEEN 1 AND 5"));
         builder.HasJobmateKey();
         builder.HasJobmateAuditColumns();
 

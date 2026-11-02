@@ -708,22 +708,22 @@ public sealed class CompleteJobCommandHandler(
 }
 
 /// <summary>
-/// Deletes a draft outright. A job that has been live has to be cancelled instead, so
-/// the applications and payments attached to it keep a valid history.
+/// Deletes a draft (soft delete: the row is kept with <c>deleted_at</c> set and every
+/// query skips it). A job that has been live has to be cancelled instead, so the
+/// applications and payments attached to it keep a valid history.
 /// </summary>
 public sealed record DeleteJobCommand(Guid JobId) : IRequest<Unit>;
 
 public sealed class DeleteJobCommandHandler(
     IAppDbContext db,
-    ICurrentUser currentUser) : IRequestHandler<DeleteJobCommand, Unit>
+    ICurrentUser currentUser,
+    IClock clock) : IRequestHandler<DeleteJobCommand, Unit>
 {
     public async Task<Unit> Handle(DeleteJobCommand request, CancellationToken cancellationToken)
     {
         var callerId = currentUser.RequireRole(nameof(UserRole.WorkGiver));
 
         var job = await db.Jobs
-            .Include(j => j.Skills)
-            .Include(j => j.WeekdayRows)
             .Include(j => j.Applications)
             .Include(j => j.Assignments)
             .Include(j => j.Payments)
@@ -749,9 +749,7 @@ public sealed class DeleteJobCommandHandler(
                 "JobHasActivity");
         }
 
-        db.JobSkills.RemoveRange(job.Skills);
-        db.JobWeekdays.RemoveRange(job.WeekdayRows);
-        db.Jobs.Remove(job);
+        job.DeletedAt = clock.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);
 

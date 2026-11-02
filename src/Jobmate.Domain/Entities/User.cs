@@ -38,10 +38,6 @@ public sealed class User : AuditableEntity
     /// <summary>Free-text area / locality shown on profiles and used as the default search area.</summary>
     public string Area { get; set; } = string.Empty;
 
-    public string? Latitude { get; set; }
-
-    public string? Longitude { get; set; }
-
     public WorkerProfile? WorkerProfile { get; set; }
 
     public GiverProfile? GiverProfile { get; set; }

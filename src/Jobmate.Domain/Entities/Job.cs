@@ -136,6 +136,9 @@ public sealed class Job : AuditableEntity
 
     public ICollection<Dispute> Disputes { get; set; } = new List<Dispute>();
 
+    /// <summary>Set when the giver deletes a draft. The row stays, and queries skip it.</summary>
+    public DateTime? DeletedAt { get; set; }
+
     public int RemainingWorkers => Math.Max(WorkersNeeded - WorkersFilled, 0);
 
     /// <summary>Total advertised payout for one worker, matching Flutter <c>Job.totalPayout</c>.</summary>

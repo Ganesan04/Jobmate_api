@@ -16,17 +16,15 @@ public sealed class WorkerSlotStore(AppDbContext db) : IWorkerSlotStore
 {
     public async Task<bool> TryReserveSlotAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        // "Id" is quoted because the key column keeps its PascalCase name; every other
-        // column on the table is mapped to snake_case. The status literals are the
-        // strings EF writes for the enum, matching SelectionRules.EnsureCanSelect. Every
-        // hole in an interpolated statement is a parameter, so the predicate is written
-        // out rather than composed.
+        // The status literals are the strings EF writes for the enum, matching
+        // SelectionRules.EnsureCanSelect. Every hole in an interpolated statement is a
+        // parameter, so the predicate is written out rather than composed.
         var affected = await db.Database.ExecuteSqlInterpolatedAsync(
             $"""
              UPDATE jobmate.jobs
              SET workers_filled = workers_filled + 1,
                  updated_at = {DateTime.UtcNow}
-             WHERE "Id" = {jobId}
+             WHERE job_id = {jobId}
                AND status IN ('Active', 'Pending')
                AND workers_filled < workers_needed
              """,

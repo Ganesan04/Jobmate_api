@@ -84,6 +84,9 @@ public sealed class SavedJob : AuditableEntity
     public Guid JobId { get; set; }
 
     public Job? Job { get; set; }
+
+    /// <summary>Set when the bookmark is removed. The row stays, and queries skip it.</summary>
+    public DateTime? DeletedAt { get; set; }
 }
 
 /// <summary>

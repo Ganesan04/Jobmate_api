@@ -26,7 +26,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Jobmate.Domain.Entities.Conversation", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -47,13 +48,14 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("LastMessageSenderId")
                         .HasColumnType("uuid")
-                        .HasColumnName("last_message_sender_id");
+                        .HasColumnName("last_message_sender_user_id");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamptz")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_conversations");
 
                     b.HasIndex("JobId")
                         .HasDatabaseName("ix_conversations_job_id");
@@ -64,7 +66,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Jobmate.Domain.Entities.ConversationParticipant", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_participant_id");
 
                     b.Property<Guid>("ConversationId")
                         .HasColumnType("uuid")
@@ -98,11 +101,12 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_conversation_participants");
 
                     b.HasIndex("ConversationId", "UserId")
                         .IsUnique()
-                        .HasDatabaseName("ix_conversation_participants_conversation_user");
+                        .HasDatabaseName("ux_conversation_participants_conversation_user");
 
                     b.HasIndex("UserId", "IsArchived", "UnreadCount")
                         .HasDatabaseName("ix_conversation_participants_user_unread");
@@ -113,7 +117,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Jobmate.Domain.Entities.Dispute", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("dispute_id");
 
                     b.Property<Guid>("AgainstUserId")
                         .HasColumnType("uuid")
@@ -172,13 +177,17 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_disputes");
 
-                    b.HasIndex("AgainstUserId");
+                    b.HasIndex("AgainstUserId")
+                        .HasDatabaseName("ix_disputes_against_user_id");
 
-                    b.HasIndex("RaisedByUserId");
+                    b.HasIndex("RaisedByUserId")
+                        .HasDatabaseName("ix_disputes_raised_by_user_id");
 
-                    b.HasIndex("ResolvedByUserId");
+                    b.HasIndex("ResolvedByUserId")
+                        .HasDatabaseName("ix_disputes_resolved_by_user_id");
 
                     b.HasIndex("JobId", "Status")
                         .HasDatabaseName("ix_disputes_job_status");
@@ -186,13 +195,19 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.HasIndex("Status", "CreatedAt")
                         .HasDatabaseName("ix_disputes_status_created");
 
-                    b.ToTable("disputes", "jobmate");
+                    b.ToTable("disputes", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_disputes_reason", "\"reason\" IN ('UnsafeWorkplace', 'NotPaid', 'AbusiveBehaviour', 'FakeJob', 'NoShow', 'Other')");
+
+                            t.HasCheckConstraint("chk_disputes_status", "\"status\" IN ('Open', 'UnderReview', 'Resolved', 'Rejected')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.GiverProfile", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("giver_profile_id");
 
                     b.Property<decimal>("AverageRating")
                         .ValueGeneratedOnAdd()
@@ -287,22 +302,29 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("verification_status");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_giver_profiles");
 
                     b.HasIndex("UserId")
                         .IsUnique()
-                        .HasDatabaseName("ix_giver_profiles_user_id");
+                        .HasDatabaseName("ux_giver_profiles_user_id");
 
                     b.HasIndex("VerificationStatus")
                         .HasDatabaseName("ix_giver_profiles_verification");
 
-                    b.ToTable("giver_profiles", "jobmate");
+                    b.ToTable("giver_profiles", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_giver_profiles_kind", "\"kind\" IN ('Individual', 'Business')");
+
+                            t.HasCheckConstraint("chk_giver_profiles_verification_status", "\"verification_status\" IN ('NotVerified', 'Pending', 'Verified', 'Rejected')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.Job", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
 
                     b.Property<string>("Address")
                         .IsRequired()
@@ -360,6 +382,10 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("deleted_at");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(4000)
@@ -393,7 +419,7 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("GiverId")
                         .HasColumnType("uuid")
-                        .HasColumnName("giver_id");
+                        .HasColumnName("giver_user_id");
 
                     b.Property<bool>("IsRecurring")
                         .ValueGeneratedOnAdd()
@@ -532,7 +558,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("workplace_type");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_jobs");
 
                     b.HasIndex("Area")
                         .HasDatabaseName("ix_jobs_area");
@@ -548,16 +575,29 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.ToTable("jobs", "jobmate", t =>
                         {
-                            t.HasCheckConstraint("ck_jobs_workers_filled", "\"workers_filled\" >= 0");
+                            t.HasCheckConstraint("chk_jobs_category", "\"category\" IN ('Retail', 'Events', 'Delivery', 'Cleaning', 'Security', 'Office', 'Hospitality', 'Construction', 'Teaching', 'Healthcare', 'ItSupport', 'Other')");
 
-                            t.HasCheckConstraint("ck_jobs_workers_needed", "\"workers_needed\" > 0");
+                            t.HasCheckConstraint("chk_jobs_job_type", "\"job_type\" IN ('OneTime', 'Recurring')");
+
+                            t.HasCheckConstraint("chk_jobs_pay_type", "\"pay_type\" IN ('Fixed', 'Hourly', 'Daily', 'PerPiece')");
+
+                            t.HasCheckConstraint("chk_jobs_payment_method", "\"payment_method\" IN ('Upi', 'Bank', 'Cash')");
+
+                            t.HasCheckConstraint("chk_jobs_status", "\"status\" IN ('Draft', 'Pending', 'Active', 'InProgress', 'Completed', 'Cancelled', 'Expired')");
+
+                            t.HasCheckConstraint("chk_jobs_workers_filled", "\"workers_filled\" >= 0");
+
+                            t.HasCheckConstraint("chk_jobs_workers_needed", "\"workers_needed\" > 0");
+
+                            t.HasCheckConstraint("chk_jobs_workplace_type", "\"workplace_type\" IN ('OnSite', 'Remote', 'Hybrid')");
                         });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.JobApplication", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_application_id");
 
                     b.Property<DateTime?>("AcceptedAt")
                         .HasColumnType("timestamptz")
@@ -628,27 +668,32 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("WorkerId")
                         .HasColumnType("uuid")
-                        .HasColumnName("worker_id");
+                        .HasColumnName("worker_user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_job_applications");
 
                     b.HasIndex("JobId", "Status")
                         .HasDatabaseName("ix_job_applications_job_status");
 
                     b.HasIndex("JobId", "WorkerId")
                         .IsUnique()
-                        .HasDatabaseName("ix_job_applications_job_worker");
+                        .HasDatabaseName("ux_job_applications_job_worker");
 
                     b.HasIndex("WorkerId", "Status")
                         .HasDatabaseName("ix_job_applications_worker_status");
 
-                    b.ToTable("job_applications", "jobmate");
+                    b.ToTable("job_applications", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_job_applications_status", "\"status\" IN ('Applied', 'Viewed', 'Shortlisted', 'Accepted', 'Rejected', 'Withdrawn', 'Expired')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.JobSkill", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_skill_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -668,14 +713,15 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_job_skills");
 
                     b.HasIndex("Name")
                         .HasDatabaseName("ix_job_skills_name");
 
                     b.HasIndex("JobId", "Name")
                         .IsUnique()
-                        .HasDatabaseName("ix_job_skills_job_name");
+                        .HasDatabaseName("ux_job_skills_job_name");
 
                     b.ToTable("job_skills", "jobmate");
                 });
@@ -683,7 +729,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Jobmate.Domain.Entities.JobWeekday", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_weekday_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -701,22 +748,24 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_job_weekdays");
 
                     b.HasIndex("JobId", "DayOfWeek")
                         .IsUnique()
-                        .HasDatabaseName("ix_job_weekdays_job_day");
+                        .HasDatabaseName("ux_job_weekdays_job_day");
 
                     b.ToTable("job_weekdays", "jobmate", t =>
                         {
-                            t.HasCheckConstraint("ck_job_weekdays_day_of_week", "\"day_of_week\" BETWEEN 1 AND 7");
+                            t.HasCheckConstraint("chk_job_weekdays_day_of_week", "\"day_of_week\" BETWEEN 1 AND 7");
                         });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.Message", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("message_id");
 
                     b.Property<Guid>("ConversationId")
                         .HasColumnType("uuid")
@@ -750,7 +799,7 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uuid")
-                        .HasColumnName("sender_id");
+                        .HasColumnName("sender_user_id");
 
                     b.Property<DateTime>("SentAt")
                         .HasColumnType("timestamptz")
@@ -760,21 +809,27 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_messages");
 
-                    b.HasIndex("SenderId");
+                    b.HasIndex("SenderId")
+                        .HasDatabaseName("ix_messages_sender_user_id");
 
                     b.HasIndex("ConversationId", "SentAt")
                         .IsDescending(false, true)
                         .HasDatabaseName("ix_messages_conversation_sent");
 
-                    b.ToTable("messages", "jobmate");
+                    b.ToTable("messages", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_messages_message_type", "\"message_type\" IN ('Text', 'System')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.Notification", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("notification_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -835,19 +890,26 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_notifications");
 
                     b.HasIndex("UserId", "IsRead", "CreatedAt")
                         .IsDescending(false, false, true)
                         .HasDatabaseName("ix_notifications_user_read_created");
 
-                    b.ToTable("notifications", "jobmate");
+                    b.ToTable("notifications", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_notifications_reference_type", "\"reference_type\" IN ('Job', 'Application', 'Assignment', 'Payment', 'Conversation', 'Dispute', 'Verification', 'None')");
+
+                            t.HasCheckConstraint("chk_notifications_type", "\"type\" IN ('ApplicationUpdate', 'JobAccepted', 'JobShortlisted', 'Payment', 'JobReminder', 'NewApplicant', 'System')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.OtpChallenge", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("otp_challenge_id");
 
                     b.Property<int>("AttemptCount")
                         .ValueGeneratedOnAdd()
@@ -895,7 +957,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_otp_challenges");
 
                     b.HasIndex("ExpiresAt")
                         .HasDatabaseName("ix_otp_challenges_expires");
@@ -903,13 +966,17 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.HasIndex("PhoneNumber", "Purpose", "CreatedAt")
                         .HasDatabaseName("ix_otp_challenges_phone_purpose_created");
 
-                    b.ToTable("otp_challenges", "jobmate");
+                    b.ToTable("otp_challenges", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_otp_challenges_purpose", "\"purpose\" IN ('PhoneVerification', 'PasswordReset', 'EmailVerification')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.PasswordResetToken", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("password_reset_token_id");
 
                     b.Property<DateTime?>("ConsumedAt")
                         .HasColumnType("timestamptz")
@@ -937,13 +1004,15 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_password_reset_tokens");
 
                     b.HasIndex("TokenHash")
                         .IsUnique()
-                        .HasDatabaseName("ix_password_reset_tokens_token_hash");
+                        .HasDatabaseName("ux_password_reset_tokens_token_hash");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_password_reset_tokens_user_id");
 
                     b.ToTable("password_reset_tokens", "jobmate");
                 });
@@ -951,7 +1020,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Jobmate.Domain.Entities.Payment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_id");
 
                     b.Property<int>("AgreedPaySnapshot")
                         .HasColumnType("integer")
@@ -963,7 +1033,7 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("AssignmentId")
                         .HasColumnType("uuid")
-                        .HasColumnName("assignment_id");
+                        .HasColumnName("worker_assignment_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -984,7 +1054,7 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("GiverId")
                         .HasColumnType("uuid")
-                        .HasColumnName("giver_id");
+                        .HasColumnName("giver_user_id");
 
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
@@ -1043,19 +1113,21 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("WorkerId")
                         .HasColumnType("uuid")
-                        .HasColumnName("worker_id");
+                        .HasColumnName("worker_user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_payments");
 
                     b.HasIndex("AssignmentId")
                         .IsUnique()
-                        .HasDatabaseName("ix_payments_assignment");
+                        .HasDatabaseName("ux_payments_assignment");
 
-                    b.HasIndex("JobId");
+                    b.HasIndex("JobId")
+                        .HasDatabaseName("ix_payments_job_id");
 
                     b.HasIndex("GiverId", "IdempotencyKey")
                         .IsUnique()
-                        .HasDatabaseName("ix_payments_giver_idempotency");
+                        .HasDatabaseName("ux_payments_giver_idempotency");
 
                     b.HasIndex("GiverId", "Status", "CreatedAt")
                         .HasDatabaseName("ix_payments_giver_status_created");
@@ -1065,14 +1137,19 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.ToTable("payments", "jobmate", t =>
                         {
-                            t.HasCheckConstraint("ck_payments_total_amount", "\"total_amount\" = \"amount\" + \"overtime_amount\" + \"platform_fee\"");
+                            t.HasCheckConstraint("chk_payments_payment_method", "\"payment_method\" IN ('Upi', 'Bank', 'Cash')");
+
+                            t.HasCheckConstraint("chk_payments_status", "\"status\" IN ('Pending', 'Processing', 'Paid', 'Disputed', 'Failed', 'Refunded', 'Cancelled')");
+
+                            t.HasCheckConstraint("chk_payments_total_amount", "\"total_amount\" = \"amount\" + \"overtime_amount\" + \"platform_fee\"");
                         });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.Rating", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("rating_id");
 
                     b.Property<string>("Comment")
                         .IsRequired()
@@ -1114,27 +1191,32 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("worker_assignment_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_ratings");
 
-                    b.HasIndex("FromUserId");
+                    b.HasIndex("FromUserId")
+                        .HasDatabaseName("ix_ratings_from_user_id");
 
                     b.HasIndex("ToUserId", "CreatedAt")
                         .HasDatabaseName("ix_ratings_to_user_created");
 
                     b.HasIndex("JobId", "FromUserId", "ToUserId")
                         .IsUnique()
-                        .HasDatabaseName("ix_ratings_job_from_to");
+                        .HasDatabaseName("ux_ratings_job_from_to");
 
                     b.ToTable("ratings", "jobmate", t =>
                         {
-                            t.HasCheckConstraint("ck_ratings_stars", "\"stars\" BETWEEN 1 AND 5");
+                            t.HasCheckConstraint("chk_ratings_rating_direction", "\"rating_direction\" IN ('GiverToWorker', 'WorkerToGiver')");
+
+                            t.HasCheckConstraint("chk_ratings_stars", "\"stars\" BETWEEN 1 AND 5");
                         });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("refresh_token_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -1151,7 +1233,7 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("ReplacedByTokenId")
                         .HasColumnType("uuid")
-                        .HasColumnName("replaced_by_token_id");
+                        .HasColumnName("replaced_by_refresh_token_id");
 
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("timestamptz")
@@ -1176,11 +1258,12 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_refresh_tokens");
 
                     b.HasIndex("TokenHash")
                         .IsUnique()
-                        .HasDatabaseName("ix_refresh_tokens_token_hash");
+                        .HasDatabaseName("ux_refresh_tokens_token_hash");
 
                     b.HasIndex("UserId", "RevokedAt")
                         .HasDatabaseName("ix_refresh_tokens_user_revoked");
@@ -1191,11 +1274,16 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Jobmate.Domain.Entities.SavedJob", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("saved_job_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
                         .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("deleted_at");
 
                     b.Property<Guid>("JobId")
                         .HasColumnType("uuid")
@@ -1209,13 +1297,16 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_saved_jobs");
 
-                    b.HasIndex("JobId");
+                    b.HasIndex("JobId")
+                        .HasDatabaseName("ix_saved_jobs_job_id");
 
                     b.HasIndex("UserId", "JobId")
                         .IsUnique()
-                        .HasDatabaseName("ix_saved_jobs_user_job");
+                        .HasDatabaseName("ux_saved_jobs_user_job")
+                        .HasFilter("deleted_at IS NULL");
 
                     b.ToTable("saved_jobs", "jobmate");
                 });
@@ -1223,7 +1314,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Jobmate.Domain.Entities.SupportReport", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("support_report_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -1263,20 +1355,26 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_support_reports");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_support_reports_user_id");
 
                     b.HasIndex("IsResolved", "CreatedAt")
                         .HasDatabaseName("ix_support_reports_resolved_created");
 
-                    b.ToTable("support_reports", "jobmate");
+                    b.ToTable("support_reports", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_support_reports_reason", "\"reason\" IN ('UnsafeWorkplace', 'NotPaid', 'AbusiveBehaviour', 'FakeJob', 'NoShow', 'Other')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
 
                     b.Property<string>("Area")
                         .IsRequired()
@@ -1321,16 +1419,6 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(60)")
                         .HasColumnName("last_name");
 
-                    b.Property<string>("Latitude")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("latitude");
-
-                    b.Property<string>("Longitude")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("longitude");
-
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -1364,30 +1452,37 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("verification_status");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_users");
 
                     b.HasIndex("Area")
                         .HasDatabaseName("ix_users_area");
 
                     b.HasIndex("Email")
                         .IsUnique()
-                        .HasDatabaseName("ix_users_email")
+                        .HasDatabaseName("ux_users_email")
                         .HasFilter("email IS NOT NULL");
 
                     b.HasIndex("PhoneNumber")
                         .IsUnique()
-                        .HasDatabaseName("ix_users_phone_number");
+                        .HasDatabaseName("ux_users_phone_number");
 
                     b.HasIndex("Role", "IsActive")
                         .HasDatabaseName("ix_users_role_active");
 
-                    b.ToTable("users", "jobmate");
+                    b.ToTable("users", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_users_role", "\"role\" IN ('Worker', 'WorkGiver', 'Admin')");
+
+                            t.HasCheckConstraint("chk_users_verification_status", "\"verification_status\" IN ('NotVerified', 'Pending', 'Verified', 'Rejected')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.UserDevice", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_device_id");
 
                     b.Property<string>("AppVersion")
                         .HasMaxLength(30)
@@ -1433,22 +1528,27 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_user_devices");
 
                     b.HasIndex("Token")
                         .IsUnique()
-                        .HasDatabaseName("ix_user_devices_token");
+                        .HasDatabaseName("ux_user_devices_token");
 
                     b.HasIndex("UserId", "IsActive")
                         .HasDatabaseName("ix_user_devices_user_active");
 
-                    b.ToTable("user_devices", "jobmate");
+                    b.ToTable("user_devices", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_user_devices_platform", "\"platform\" IN ('Android', 'Ios', 'Web')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.VerificationRequest", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("verification_request_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -1502,9 +1602,11 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_verification_requests");
 
-                    b.HasIndex("ReviewedByUserId");
+                    b.HasIndex("ReviewedByUserId")
+                        .HasDatabaseName("ix_verification_requests_reviewed_by_user_id");
 
                     b.HasIndex("Status", "CreatedAt")
                         .HasDatabaseName("ix_verification_requests_status_created");
@@ -1512,13 +1614,19 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "Type", "Status")
                         .HasDatabaseName("ix_verification_requests_user_type_status");
 
-                    b.ToTable("verification_requests", "jobmate");
+                    b.ToTable("verification_requests", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_verification_requests_status", "\"status\" IN ('Pending', 'Approved', 'Rejected', 'Withdrawn')");
+
+                            t.HasCheckConstraint("chk_verification_requests_type", "\"type\" IN ('Identity', 'Phone', 'Email', 'Skills', 'Address')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.WorkerAssignment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_assignment_id");
 
                     b.Property<int>("AgreedPay")
                         .HasColumnType("integer")
@@ -1526,7 +1634,7 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("ApplicationId")
                         .HasColumnType("uuid")
-                        .HasColumnName("application_id");
+                        .HasColumnName("job_application_id");
 
                     b.Property<string>("CheckInCode")
                         .HasMaxLength(20)
@@ -1551,7 +1659,7 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("GiverId")
                         .HasColumnType("uuid")
-                        .HasColumnName("giver_id");
+                        .HasColumnName("giver_user_id");
 
                     b.Property<Guid>("JobId")
                         .HasColumnType("uuid")
@@ -1590,18 +1698,21 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("WorkerId")
                         .HasColumnType("uuid")
-                        .HasColumnName("worker_id");
+                        .HasColumnName("worker_user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_worker_assignments");
 
                     b.HasIndex("ApplicationId")
                         .IsUnique()
-                        .HasDatabaseName("ix_worker_assignments_application");
+                        .HasDatabaseName("ux_worker_assignments_application");
 
-                    b.HasIndex("GiverId");
+                    b.HasIndex("GiverId")
+                        .HasDatabaseName("ix_worker_assignments_giver_user_id");
 
                     b.HasIndex("PaymentId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ux_worker_assignments_payment_id");
 
                     b.HasIndex("JobId", "Status")
                         .HasDatabaseName("ix_worker_assignments_job_status");
@@ -1609,13 +1720,17 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.HasIndex("WorkerId", "Status")
                         .HasDatabaseName("ix_worker_assignments_worker_status");
 
-                    b.ToTable("worker_assignments", "jobmate");
+                    b.ToTable("worker_assignments", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_worker_assignments_status", "\"status\" IN ('Pending', 'Active', 'CheckedIn', 'Completed', 'Cancelled')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.WorkerAvailabilitySlot", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_availability_slot_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -1647,21 +1762,23 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("worker_profile_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_worker_availability_slots");
 
                     b.HasIndex("WorkerProfileId", "DayOfWeek")
                         .HasDatabaseName("ix_worker_availability_slots_profile_day");
 
                     b.ToTable("worker_availability_slots", "jobmate", t =>
                         {
-                            t.HasCheckConstraint("ck_worker_availability_slots_day_of_week", "\"day_of_week\" BETWEEN 1 AND 7");
+                            t.HasCheckConstraint("chk_worker_availability_slots_day_of_week", "\"day_of_week\" BETWEEN 1 AND 7");
                         });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.WorkerDocument", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_document_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -1706,20 +1823,28 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("worker_profile_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_worker_documents");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_worker_documents_status");
 
-                    b.HasIndex("WorkerProfileId");
+                    b.HasIndex("WorkerProfileId")
+                        .HasDatabaseName("ix_worker_documents_worker_profile_id");
 
-                    b.ToTable("worker_documents", "jobmate");
+                    b.ToTable("worker_documents", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_worker_documents_status", "\"status\" IN ('NotVerified', 'Pending', 'Verified', 'Rejected')");
+
+                            t.HasCheckConstraint("chk_worker_documents_type", "\"type\" IN ('Identity', 'Phone', 'Email', 'Skills', 'Address')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.WorkerProfile", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_profile_id");
 
                     b.Property<string>("Availability")
                         .HasMaxLength(200)
@@ -1827,11 +1952,12 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("verification_status");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_worker_profiles");
 
                     b.HasIndex("UserId")
                         .IsUnique()
-                        .HasDatabaseName("ix_worker_profiles_user_id");
+                        .HasDatabaseName("ux_worker_profiles_user_id");
 
                     b.HasIndex("VerificationStatus")
                         .HasDatabaseName("ix_worker_profiles_verification");
@@ -1839,13 +1965,19 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.HasIndex("IsAvailable", "IsOnline")
                         .HasDatabaseName("ix_worker_profiles_availability");
 
-                    b.ToTable("worker_profiles", "jobmate");
+                    b.ToTable("worker_profiles", "jobmate", t =>
+                        {
+                            t.HasCheckConstraint("chk_worker_profiles_expected_pay_type", "\"expected_pay_type\" IN ('Fixed', 'Hourly', 'Daily', 'PerPiece')");
+
+                            t.HasCheckConstraint("chk_worker_profiles_verification_status", "\"verification_status\" IN ('NotVerified', 'Pending', 'Verified', 'Rejected')");
+                        });
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.WorkerSkill", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_skill_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -1865,14 +1997,15 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("worker_profile_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_worker_skills");
 
                     b.HasIndex("Name")
                         .HasDatabaseName("ix_worker_skills_name");
 
                     b.HasIndex("WorkerProfileId", "Name")
                         .IsUnique()
-                        .HasDatabaseName("ix_worker_skills_profile_name");
+                        .HasDatabaseName("ux_worker_skills_profile_name");
 
                     b.ToTable("worker_skills", "jobmate");
                 });
@@ -1882,7 +2015,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.HasOne("Jobmate.Domain.Entities.Job", "Job")
                         .WithMany()
                         .HasForeignKey("JobId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_conversations_job_id");
 
                     b.Navigation("Job");
                 });
@@ -1893,13 +2027,15 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("Participants")
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_conversation_participants_conversation_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_conversation_participants_user_id");
 
                     b.Navigation("Conversation");
 
@@ -1912,24 +2048,28 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("AgainstUserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_disputes_against_user_id");
 
                     b.HasOne("Jobmate.Domain.Entities.Job", "Job")
                         .WithMany("Disputes")
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_disputes_job_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "RaisedBy")
                         .WithMany()
                         .HasForeignKey("RaisedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_disputes_raised_by_user_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "ResolvedBy")
                         .WithMany()
                         .HasForeignKey("ResolvedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_disputes_resolved_by_user_id");
 
                     b.Navigation("AgainstUser");
 
@@ -1946,7 +2086,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithOne("GiverProfile")
                         .HasForeignKey("Jobmate.Domain.Entities.GiverProfile", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_giver_profiles_user_id");
 
                     b.Navigation("User");
                 });
@@ -1957,7 +2098,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("GiverId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_jobs_giver_user_id");
 
                     b.Navigation("Giver");
                 });
@@ -1968,13 +2110,15 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("Applications")
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_job_applications_job_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "Worker")
                         .WithMany()
                         .HasForeignKey("WorkerId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_job_applications_worker_user_id");
 
                     b.Navigation("Job");
 
@@ -1987,7 +2131,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("Skills")
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_job_skills_job_id");
 
                     b.Navigation("Job");
                 });
@@ -1998,7 +2143,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("WeekdayRows")
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_job_weekdays_job_id");
 
                     b.Navigation("Job");
                 });
@@ -2009,13 +2155,15 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("Messages")
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_messages_conversation_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_messages_sender_user_id");
 
                     b.Navigation("Conversation");
 
@@ -2028,7 +2176,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_notifications_user_id");
 
                     b.Navigation("User");
                 });
@@ -2039,7 +2188,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_password_reset_tokens_user_id");
 
                     b.Navigation("User");
                 });
@@ -2050,19 +2200,22 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("GiverId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_payments_giver_user_id");
 
                     b.HasOne("Jobmate.Domain.Entities.Job", "Job")
                         .WithMany("Payments")
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_payments_job_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "Worker")
                         .WithMany()
                         .HasForeignKey("WorkerId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_payments_worker_user_id");
 
                     b.Navigation("Giver");
 
@@ -2077,19 +2230,22 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("FromUserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_ratings_from_user_id");
 
                     b.HasOne("Jobmate.Domain.Entities.Job", "Job")
                         .WithMany("Ratings")
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_ratings_job_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "ToUser")
                         .WithMany()
                         .HasForeignKey("ToUserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_ratings_to_user_id");
 
                     b.Navigation("FromUser");
 
@@ -2104,7 +2260,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("RefreshTokens")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_refresh_tokens_user_id");
 
                     b.Navigation("User");
                 });
@@ -2115,13 +2272,15 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_saved_jobs_job_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_saved_jobs_user_id");
 
                     b.Navigation("Job");
 
@@ -2134,7 +2293,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_support_reports_user_id");
 
                     b.Navigation("User");
                 });
@@ -2145,7 +2305,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("Devices")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_user_devices_user_id");
 
                     b.Navigation("User");
                 });
@@ -2155,13 +2316,15 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.HasOne("Jobmate.Domain.Entities.User", "ReviewedBy")
                         .WithMany()
                         .HasForeignKey("ReviewedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_verification_requests_reviewed_by_user_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_verification_requests_user_id");
 
                     b.Navigation("ReviewedBy");
 
@@ -2174,30 +2337,35 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ApplicationId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_worker_assignments_job_application_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("GiverId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_worker_assignments_giver_user_id");
 
                     b.HasOne("Jobmate.Domain.Entities.Job", "Job")
                         .WithMany("Assignments")
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_worker_assignments_job_id");
 
                     b.HasOne("Jobmate.Domain.Entities.Payment", "Payment")
                         .WithOne("Assignment")
                         .HasForeignKey("Jobmate.Domain.Entities.WorkerAssignment", "PaymentId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_worker_assignments_payment_id");
 
                     b.HasOne("Jobmate.Domain.Entities.User", "Worker")
                         .WithMany()
                         .HasForeignKey("WorkerId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_worker_assignments_worker_user_id");
 
                     b.Navigation("Application");
 
@@ -2214,7 +2382,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("AvailabilitySlots")
                         .HasForeignKey("WorkerProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_worker_availability_slots_worker_profile_id");
 
                     b.Navigation("WorkerProfile");
                 });
@@ -2225,7 +2394,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("Documents")
                         .HasForeignKey("WorkerProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_worker_documents_worker_profile_id");
 
                     b.Navigation("WorkerProfile");
                 });
@@ -2236,7 +2406,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithOne("WorkerProfile")
                         .HasForeignKey("Jobmate.Domain.Entities.WorkerProfile", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_worker_profiles_user_id");
 
                     b.Navigation("User");
                 });
@@ -2247,7 +2418,8 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .WithMany("Skills")
                         .HasForeignKey("WorkerProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_worker_skills_worker_profile_id");
 
                     b.Navigation("WorkerProfile");
                 });

@@ -42,7 +42,7 @@ public static class ApplicationRules
         }
 
         // One application per worker per job, which the unique index on
-        // (job_id, worker_id) also enforces. Checking here turns a double tap on Apply
+        // (job_id, worker_user_id) also enforces. Checking here turns a double tap on Apply
         // into a readable 409 instead of a database error, and a previously closed
         // application stays closed rather than being resurrected.
         if (existing is not null)

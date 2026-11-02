@@ -51,6 +51,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
+        SchemaConventions.Apply(modelBuilder);
+
         base.OnModelCreating(modelBuilder);
     }
 

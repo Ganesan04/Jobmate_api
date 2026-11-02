@@ -14,13 +14,16 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<Job>
         {
             // A job cannot be posted for zero or negative workers, and the filled
             // count is maintained server-side and can never be negative.
-            t.HasCheckConstraint("ck_jobs_workers_needed", "\"workers_needed\" > 0");
-            t.HasCheckConstraint("ck_jobs_workers_filled", "\"workers_filled\" >= 0");
+            t.HasCheckConstraint("chk_jobs_workers_needed", "\"workers_needed\" > 0");
+            t.HasCheckConstraint("chk_jobs_workers_filled", "\"workers_filled\" >= 0");
         });
         builder.HasJobmateKey();
         builder.HasJobmateAuditColumns();
 
-        builder.Property(j => j.GiverId).HasColumnName("giver_id").IsRequired();
+        builder.Property(j => j.DeletedAt).HasColumnName("deleted_at").HasColumnType("timestamptz");
+        builder.HasQueryFilter(j => j.DeletedAt == null);
+
+        builder.Property(j => j.GiverId).HasColumnName("giver_user_id").IsRequired();
         builder.Property(j => j.Company).HasColumnName("company").HasMaxLength(150).IsRequired();
         builder.Property(j => j.Title).HasColumnName("title").HasMaxLength(150).IsRequired();
         builder.Property(j => j.Category).HasColumnName("category").HasConversion<string>().HasMaxLength(30).IsRequired();
@@ -128,7 +131,7 @@ public sealed class JobWeekdayConfiguration : IEntityTypeConfiguration<JobWeekda
     {
         builder.ToTable("job_weekdays", t =>
             // Matches the app's WorkDay numbering: 1 = Monday ... 7 = Sunday.
-            t.HasCheckConstraint("ck_job_weekdays_day_of_week", "\"day_of_week\" BETWEEN 1 AND 7"));
+            t.HasCheckConstraint("chk_job_weekdays_day_of_week", "\"day_of_week\" BETWEEN 1 AND 7"));
         builder.HasJobmateKey();
         builder.HasJobmateAuditColumns();
 

@@ -16,7 +16,7 @@ namespace Jobmate.Application.Features.Applications.Commands;
 ///
 /// The apply is the one place that has to be forgiving: the same worker tapping Apply
 /// twice must not produce two rows, and the database's unique index on
-/// (job_id, worker_id) is the backstop for a genuine race.
+/// (job_id, worker_user_id) is the backstop for a genuine race.
 /// </summary>
 public sealed record ApplyToJobCommand(Guid JobId, ApplyToJobRequest Request) : IRequest<JobApplicationDto>;
 

@@ -358,7 +358,8 @@ public sealed record UnsaveJobCommand(Guid JobId) : IRequest<bool>;
 
 public sealed class UnsaveJobCommandHandler(
     IAppDbContext db,
-    ICurrentUser currentUser) : IRequestHandler<UnsaveJobCommand, bool>
+    ICurrentUser currentUser,
+    IClock clock) : IRequestHandler<UnsaveJobCommand, bool>
 {
     public async Task<bool> Handle(UnsaveJobCommand request, CancellationToken cancellationToken)
     {
@@ -372,7 +373,7 @@ public sealed class UnsaveJobCommandHandler(
             return false;
         }
 
-        db.SavedJobs.Remove(saved);
+        saved.DeletedAt = clock.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);
 
