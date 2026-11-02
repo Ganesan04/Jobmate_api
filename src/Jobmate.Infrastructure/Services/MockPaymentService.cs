@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 namespace Jobmate.Infrastructure.Services;
 
 /// <summary>
-/// Development payment gateway. It approves charges and refunds without contacting
+/// Development payment gateway. It approves charges without contacting
 /// a bank, which keeps the booking and wallet flows testable end to end.
 ///
 /// It deliberately refuses to fabricate success for the failure cases the app must
@@ -55,27 +55,6 @@ public sealed class MockPaymentService(ILogger<MockPaymentService> logger) : IPa
         return Task.FromResult(PaymentChargeResult.Succeeded(
             reference,
             $"{{\"provider\":\"mock\",\"idempotencyKey\":\"{request.IdempotencyKey}\"}}"));
-    }
-
-    public Task<PaymentRefundResult> RefundAsync(
-        PaymentRefundRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        if (request.Amount <= 0)
-        {
-            return Task.FromResult(new PaymentRefundResult(false, null, "Refund amount must be greater than zero."));
-        }
-
-        var reference = $"MOCK-REF-{request.PaymentId.ToString()[..8].ToUpperInvariant()}";
-
-        logger.LogInformation(
-            "Mock gateway refunded {Amount} for payment {PaymentId} as {Reference}: {Reason}",
-            request.Amount,
-            request.PaymentId,
-            reference,
-            request.Reason);
-
-        return Task.FromResult(new PaymentRefundResult(true, reference, null));
     }
 
     /// <summary>

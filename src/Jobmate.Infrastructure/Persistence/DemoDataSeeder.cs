@@ -13,7 +13,9 @@ namespace Jobmate.Infrastructure.Persistence;
 /// <summary>
 /// A small, coherent marketplace to click through: a few employers, a few workers with
 /// skills and history, live jobs in different states, an application, a booking with a
-/// settled payment, a conversation, and something sitting in the admin queues.
+/// settled payment, a conversation, verification history and a support report. Every
+/// account has both a worker and a work giver profile; the role below is only the mode
+/// it starts in.
 ///
 /// Development data only, and it refuses to run anywhere it could reach a real person.
 /// Two independent gates, either of which is enough:
@@ -54,8 +56,8 @@ public sealed class DemoDataSeeder(
 
         if (string.IsNullOrWhiteSpace(password))
         {
-            // A warning rather than a throw, deliberately unlike the admin seeder. A system
-            // genuinely cannot start without an admin; a development convenience can. The
+            // A warning rather than a throw: a development convenience is not something the
+            // system needs to start. The
             // alternative would be for this seeder to invent a password of its own, and a
             // known credential is exactly what should never be written into a database by
             // a default. appsettings.Development.json sets the key for local runs.
@@ -116,6 +118,26 @@ public sealed class DemoDataSeeder(
             "Noida", ["Packing"], completed: 0, available: true, online: false);
 
         db.WorkerProfiles.AddRange(deepak, priya, imran, lakshmi);
+
+        // Every account can work and hire, so each one gets the profile for the mode it
+        // did not start in, the same pair registration creates.
+        db.WorkerProfiles.AddRange(givers.Select(giver => new WorkerProfile
+        {
+            UserId = giver.Id,
+            Location = giver.Area,
+            CreatedAt = Now.AddDays(-45).UtcDateTime
+        }));
+
+        db.GiverProfiles.AddRange(workers.Select(worker => new GiverProfile
+        {
+            UserId = worker.Id,
+            Kind = GiverKind.Individual,
+            BusinessName = worker.FullName,
+            ContactPerson = worker.FullName,
+            Location = worker.Area,
+            CreatedAt = Now.AddDays(-45).UtcDateTime
+        }));
+
         await db.SaveChangesAsync(cancellationToken);
 
         // -------------------------------------------------------------------- jobs
@@ -327,10 +349,10 @@ public sealed class DemoDataSeeder(
                 SentAt = Now.AddHours(-2).UtcDateTime
             });
 
-        // ------------------------------------------------------- the admin queues
+        // ------------------------------------------- verification history and a report
 
-        // Pending requests, so the review queue is not empty on a fresh development
-        // database and the badge roll-up has something to fold.
+        // Approved requests, the only kind submission now produces, so the badge roll-up
+        // has something to fold on a fresh development database.
         db.VerificationRequests.AddRange(
             NewVerificationRequest(workers[0], VerificationType.Identity, "deepak_aadhaar.pdf", "Aadhaar, both sides."),
             NewVerificationRequest(workers[1], VerificationType.Identity, "priya_aadhaar.pdf", null),
@@ -392,7 +414,7 @@ public sealed class DemoDataSeeder(
             // have to be storable under the same rules as a real signup.
             PhoneNumber = PhoneNumber.Create(phone).E164,
             PasswordHash = passwordHash,
-            Role = role,
+            ActiveRole = role,
             IsActive = true,
 
             // A verified phone and a green badge are different things, and the demo needs
@@ -421,7 +443,6 @@ public sealed class DemoDataSeeder(
             Location = user.Area,
             ContactPerson = $"{user.FirstName} {user.LastName}",
             ContactPhone = contactPhone,
-            VerificationStatus = user.VerificationStatus,
             TotalJobsPosted = 1,
             CreatedAt = Now.AddDays(-45).UtcDateTime
         };
@@ -444,7 +465,6 @@ public sealed class DemoDataSeeder(
             Availability = available ? "Weekday mornings and Saturdays" : "Not currently looking",
             ExpectedPay = 1000m,
             ExpectedPayType = PayType.Daily,
-            VerificationStatus = user.VerificationStatus,
             IsAvailable = available,
             IsOnline = online,
             LastActiveAt = Now.AddHours(-2).UtcDateTime,
@@ -527,9 +547,10 @@ public sealed class DemoDataSeeder(
         {
             UserId = worker.Id,
             Type = type,
-            Status = VerificationRequestStatus.Pending,
+            Status = VerificationRequestStatus.Approved,
             DocumentName = document,
             Note = note,
+            ReviewedAt = Now.AddDays(-3).UtcDateTime,
             CreatedAt = Now.AddDays(-3).UtcDateTime
         };
 }

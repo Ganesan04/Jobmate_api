@@ -29,7 +29,7 @@ public static class RateLimitPolicies
     /// <summary>Uploading a profile image or a verification document.</summary>
     public const string Media = "media";
 
-    /// <summary>Raising a dispute or filing a support report.</summary>
+    /// <summary>Filing a support report.</summary>
     public const string Reports = "reports";
 
     /// <summary>Submitting and withdrawing a verification request.</summary>
@@ -65,7 +65,7 @@ public sealed class RateLimitOptions
     /// <summary>Uploads per user per minute.</summary>
     public int MediaPermitLimit { get; set; } = 10;
 
-    /// <summary>Disputes and reports per user per hour.</summary>
+    /// <summary>Support reports per user per hour.</summary>
     public int ReportsPermitLimit { get; set; } = 5;
 
     /// <summary>Verification submissions and withdrawals per user per hour.</summary>
@@ -74,7 +74,7 @@ public sealed class RateLimitOptions
     /// <summary>
     /// Reports are limited per hour rather than per minute on purpose. A burst of five in a
     /// minute is somebody who genuinely has a problem; five an hour sustained is somebody
-    /// burying an admin's queue, and the limit has to catch that without punishing the
+    /// flooding the support queue, and the limit has to catch that without punishing the
     /// first case.
     /// </summary>
     public TimeSpan ReportsWindow { get; set; } = TimeSpan.FromHours(1);

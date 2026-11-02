@@ -9,10 +9,11 @@
 
 **Jobmate API** is a modular monolith backend built with **ASP.NET Core 9** and **PostgreSQL (Npgsql EF Core)**. It serves as the single source of truth and backend engine for the **Jobmate Flutter** mobile application.
 
-The platform functions as an on-demand labor and job marketplace operating in India (using Indian phone format `+91`, currency INR in whole rupees, UPI/Cash payments, and geolocation proximity matching). It connects two primary user roles:
-1. **Workers (`Worker`)**: Find short-term or recurring shift jobs, apply, check in to shifts using cryptographic OTP codes, receive payouts, track earnings in a dedicated digital wallet, chat with employers, and maintain verified skill/identity profiles.
-2. **Work Givers (`WorkGiver`)**: Post jobs using a 6-step wizard, review applicant profiles, shortlist and atomically book workers, issue on-site check-in codes, release wages (with automatic 5% platform fee deduction), rate workers, and resolve disputes.
-3. **Administrators (`Admin`)**: Monitor platform health, manage user suspensions, audit jobs, review KYC identity/skill verification documents, and resolve user disputes and support tickets.
+The platform functions as an on-demand labor and job marketplace operating in India (using Indian phone format `+91`, currency INR in whole rupees, UPI/Cash payments, and geolocation proximity matching). Every account can act in two modes and switches between them at any time (`POST /api/v1/auth/switch-role`); `users.active_role` holds the current one and is the JWT role claim. There is no admin role.
+1. **Worker mode (`Worker`)**: Find short-term or recurring shift jobs, apply, check in to shifts using cryptographic OTP codes, receive payouts, track earnings in a dedicated digital wallet, chat with employers, and maintain verified skill/identity profiles.
+2. **Work giver mode (`WorkGiver`)**: Post jobs using a 6-step wizard, review applicant profiles, shortlist and atomically book workers, issue on-site check-in codes, release wages (with automatic 5% platform fee deduction), and rate workers.
+
+Every user has both a `WorkerProfile` and a `GiverProfile`. Verification belongs to the person (`users.verification_status`) and counts in both modes.
 
 ---
 
@@ -92,7 +93,7 @@ Jobmate_api/
 │   │   ├── Common/                        # AuditableEntity (Id, CreatedAt, UpdatedAt), Paging primitives
 │   │   ├── Entities/                      # User, WorkerProfile, GiverProfile, Job, JobApplication,
 │   │   │                                  # WorkerAssignment, Payment, Rating, Conversation, Message,
-│   │   │                                  # Notification, UserDevice, VerificationRequest, Dispute,
+│   │   │                                  # Notification, UserDevice, VerificationRequest,
 │   │   │                                  # SavedJob, SupportReport, AuthEntities
 │   │   ├── Enums/                         # JobStatus, ApplicationStatus, PaymentStatus, UserRole, etc.
 │   │   ├── Exceptions/                    # DomainException, NotFoundException, ConflictException, etc.
@@ -106,29 +107,28 @@ Jobmate_api/
 │   │   ├── DTOs/<Feature>/                # Feature-grouped request and response transfer models:
 │   │   │                                  # <Feature>Requests.cs and <Feature>Dtos.cs
 │   │   └── Features/<Feature>/            # Commands, Queries, Handlers, and FluentValidators:
-│   │       ├── Admin/                     # Dashboard stats, verification queue, user/job moderation
 │   │       ├── Applications/              # Job applications, review, and worker selection
-│   │       ├── Auth/                      # Registration, OTP verification, login, refresh, password reset
+│   │       ├── Auth/                      # Registration, OTP verification, login, refresh, switch-role, password reset
 │   │       ├── Jobs/                      # Job postings CRUD, discovery, distance search, giver/worker stats
 │   │       ├── Messaging/                 # Conversations, chat messages, polling, unread counts, archiving
 │   │       ├── Notifications/             # Inbox notifications, unread badges, push device tokens
-│   │       ├── Payments/                  # Wage calculations, payments, settlement, refunds, wallet stats
+│   │       ├── Payments/                  # Wage calculations, payments, settlement, wallet stats
 │   │       ├── Profiles/                  # Worker & Giver profiles, skills, weekly availability, media
 │   │       ├── Ratings/                   # Participant ratings, reviews, check-ins, work history
-│   │       ├── Trust/                     # Disputes, resolution, support issue reports
+│   │       ├── Trust/                     # Support issue reports (create-only)
 │   │       └── Verifications/             # KYC document submissions, trust badge rollups
 │   │
 │   ├── Jobmate.Infrastructure/            # Data access, security & external implementations
 │   │   ├── Configuration/                 # JwtOptions, ExternalServicesOptions, StorageOptions
 │   │   ├── Persistence/                   # AppDbContext, PersistenceConfiguration, SchemaConventions,
-│   │   │   │                              # WorkerSlotStore, AdminSeeder, DemoDataSeeder
+│   │   │   │                              # WorkerSlotStore, DemoDataSeeder
 │   │   │   ├── Configurations/            # EF Core IEntityTypeConfiguration classes per aggregate
 │   │   │   └── Migrations/                # EF Core database migrations
 │   │   ├── Security/                      # JwtService, BcryptPasswordHasher
 │   │   └── Services/                      # MockOtpService, MockPaymentService, MockPushNotificationService
 │   │
 │   └── Jobmate.Api/                       # HTTP API Host & Presentation
-│       ├── Controllers/                   # 13 REST controllers exposing v1 endpoints
+│       ├── Controllers/                   # REST controllers exposing v1 endpoints
 │       ├── Media/                         # LocalMediaStore (file system uploads & downloads)
 │       ├── Middleware/                    # ExceptionHandlingMiddleware (standardized error envelopes)
 │       ├── Properties/                    # launchSettings.json (HTTP: 5234)
@@ -152,7 +152,7 @@ The database runs in PostgreSQL under the dedicated schema `jobmate`.
 
 | Entity | Table Name | Description | Key Relationships |
 |---|---|---|---|
-| `User` | `users` | Core identity and login entity. Holds credentials, role, overall verification status. | 1:1 `WorkerProfile`, 1:1 `GiverProfile`, 1:N `RefreshTokens`, 1:N `Devices` |
+| `User` | `users` | Core identity and login entity. Holds credentials, active role (current mode), and the person's verification status used in both modes. | 1:1 `WorkerProfile`, 1:1 `GiverProfile`, 1:N `RefreshTokens`, 1:N `Devices` |
 | `WorkerProfile` | `worker_profiles` | Worker-specific details: bio, experience, expected pay, availability, rating aggregate. | N:1 `User`, 1:N `WorkerSkills`, 1:N `WorkerDocuments`, 1:N `WorkerAvailabilitySlots` |
 | `WorkerSkill` | `worker_skills` | Normalized trade skill associated with a worker. Unique per worker. | N:1 `WorkerProfile` |
 | `WorkerDocument` | `worker_documents` | Uploaded KYC document (ID, certificate, address proof) for verification. | N:1 `WorkerProfile` |
@@ -170,8 +170,7 @@ The database runs in PostgreSQL under the dedicated schema `jobmate`.
 | `Message` | `messages` | Chat bubble text, type (Text, System), read status, and delivery timestamp. | N:1 `Conversation`, N:1 `User` (Sender) |
 | `Notification` | `notifications` | In-app notification inbox item with deep link target route and ID. | N:1 `User` |
 | `UserDevice` | `user_devices` | Registered device push token (FCM), platform, and app version. | N:1 `User` |
-| `VerificationRequest` | `verification_requests` | User request to verify Identity, Phone, Email, Skills, or Address. | N:1 `User`, N:1 `ReviewedBy` (Admin) |
-| `Dispute` | `disputes` | Formal complaint on a job between participants. Can hold funds. | N:1 `Job`, N:1 `RaisedBy`, N:1 `AgainstUser`, N:1 `ResolvedBy` |
+| `VerificationRequest` | `verification_requests` | User request to verify Identity, Phone, Email, Skills, or Address. Approved on submission. | N:1 `User`, N:1 `ReviewedBy` (null for auto-approved) |
 | `SavedJob` | `saved_jobs` | Worker bookmarked job. Soft-deletable (`deleted_at`). | N:1 `User`, N:1 `Job`. Unique `(user_id, job_id, deleted_at IS NULL)` |
 | `SupportReport` | `support_reports` | General user support ticket / safety issue (does not require a booking). | N:1 `User` |
 | `RefreshToken` | `refresh_tokens` | Opaque SHA-256 hashed refresh token with family tracking for reuse detection. | N:1 `User` |
@@ -195,14 +194,14 @@ The database runs in PostgreSQL under the dedicated schema `jobmate`.
 ## 6. Functional Capabilities & Subsystems
 
 ### 6.1 Authentication & Session Management
-- **Phone-First Registration & Login**: Users register with mobile number (`+91...`), name, password, and role. Registration generates an OTP challenge.
+- **Phone-First Registration & Login**: Users register with mobile number (`+91...`), name and password; no role. Registration creates both profiles, starts the account in worker mode and generates an OTP challenge.
+- **Mode Switching**: `POST /api/v1/auth/switch-role` with `{ "role": "worker" | "workGiver" }` sets `active_role` and returns a new token pair whose role claim is the new mode. Login and refresh return the last active mode.
 - **OTP Verification**: Tested via development OTP (`123456`) or `IOtpService` abstraction. Phone numbers are validated and stored in E.164 format.
 - **Multi-Identifier Login**: Users can sign in via either email or 10-digit mobile number with password.
 - **Dual-Token System (JWT + Refresh Tokens)**:
   - Access Token: Short-lived (30 minutes default) HS256 JWT containing `sub`, `name`, `email`, `role`, `area`.
   - Refresh Token: Long-lived (30 days default) cryptographically random string. Only the SHA-256 hash is stored in PostgreSQL.
   - **Token Rotation & Reuse Detection**: Each refresh rotates the token pair and points `replaced_by_token_id`. Reusing an already rotated token immediately revokes the entire token family to defend against token theft.
-- **Admin Isolation**: Admin sign-in is strictly email-only via `/api/v1/admin/auth/login`. Non-admin accounts are rejected with 401 even with valid passwords.
 
 ### 6.2 Job Creation, Discovery & Lifecycle
 - **Creation Wizard**: Maps the Flutter 6-step creation flow (`JobDraft`). Supports one-time or recurring shifts (`JobWeekday`), overtime rates, break durations, travel/food allowances, and exact vs. hidden addresses.
@@ -215,7 +214,7 @@ The database runs in PostgreSQL under the dedicated schema `jobmate`.
   - Privacy Guard: If `location_visible = false`, exact address and coordinates are withheld from public search results and revealed only to booked workers.
 
 ### 6.3 Applications & Atomic Worker Selection
-- **Application Flow**: Workers submit an application with optional pitch message and expected rate. Duplicate applications are blocked by database unique indexes.
+- **Application Flow**: Workers submit an application with optional pitch message and expected rate. Duplicate applications are blocked by database unique indexes. Nobody can apply to, or be hired onto, their own job (`OwnJob`).
 - **Employer Review**: Work givers view applicants (which automatically marks them `Viewed`), shortlist with custom proposed pay, or reject with a reason.
 - **Race-Free Slot Selection**:
   - Selecting workers creates a `WorkerAssignment` and takes a worker slot.
@@ -240,15 +239,16 @@ The database runs in PostgreSQL under the dedicated schema `jobmate`.
   - Giver Total: $\text{Base Pay} + \text{Overtime} + \text{Platform Fee}$.
   - Worker Net: $\text{Base Pay} + \text{Overtime} - \text{Platform Fee}$.
 - **Idempotency**: Givers submit `idempotencyKey` when releasing payment. Repeated calls return the existing receipt without double charging.
-- **Worker Wallet**: Dedicated endpoints provide booking-level earnings, month-by-month summaries, and aggregated wallet balances (earned, pending, disputed).
-- **Admin Refunds**: Only administrators can execute refunds against settled payments.
+- **Worker Wallet**: Dedicated endpoints provide booking-level earnings, month-by-month summaries, and aggregated wallet balances (earned, pending).
+- **Refunds**: Only through job cancellation by the giver, which refunds settled payments. There is no standalone refund endpoint.
 
-### 6.6 Trust, Badges, Ratings & Disputes
-- **Mutual Ratings**: 1-to-5 star ratings with optional comments. Only participants of a completed job can rate, exactly once per job. Updates average ratings on profiles.
+### 6.6 Trust, Badges, Ratings & Support Reports
+- **Mutual Ratings**: 1-to-5 star ratings with optional comments. Only participants of a completed job can rate, exactly once per job. The direction (giver→worker or worker→giver) comes from the job, not the rater's mode. Updates average ratings on profiles.
 - **Trust Badge Rollup**:
+  - A submitted verification request is approved immediately and the user's badge is recomputed from their whole history.
   - Aggregates status across 4 core checks: Identity document, Mobile phone, Email address, and Skills.
   - Overall status is `Verified` only when all 4 are approved. Any active rejection renders the overall badge `Rejected`.
-- **Dispute Resolution**: Participants can raise a dispute against a booking. Disputing an amount locks the payment in `Disputed` status until an admin resolves or rejects the case.
+- **Support Reports**: Users can file a report (create-only). There are no disputes and no payment holds.
 
 ### 6.7 In-App Messaging & Notifications
 - **Chat Engine**: 1-on-1 conversations scoped to specific jobs or general inquiries between involved users.
@@ -259,7 +259,7 @@ The database runs in PostgreSQL under the dedicated schema `jobmate`.
 ### 6.8 Media Storage
 - Uploads handled via `LocalMediaStore` saved to `wwwroot/media/profile-images/` and `wwwroot/media/documents/`.
 - Strict file validation: 6 MB size limit, MIME type whitelist (JPEG, PNG, WebP, PDF), path traversal protection, and `X-Content-Type-Options: nosniff`.
-- Access Control: Profile images are public to authenticated users; identity documents are strictly private to the owner and administrators.
+- Access Control: Profile images are public to authenticated users; identity documents are strictly private to the owner.
 
 ---
 
@@ -323,7 +323,7 @@ All routes are versioned under `/api/v1/`.
 | | `POST` | `/api/v1/auth/logout` | Revoke current session or all user sessions |
 | | `POST` | `/api/v1/auth/forgot-password` | Request password reset code via phone |
 | | `POST` | `/api/v1/auth/reset-password` | Set new password with verified OTP |
-| **Admin Auth** | `POST` | `/api/v1/admin/auth/login` | Dedicated admin console sign-in (Admin only) |
+| | `POST` | `/api/v1/auth/switch-role` | Switch between worker and work giver mode; returns new tokens |
 | **Jobs** | `POST` | `/api/v1/jobs` | Create job posting from wizard (WorkGiver) |
 | | `PUT` | `/api/v1/jobs/{id}` | Update job details (Poster only) |
 | | `GET` | `/api/v1/jobs/{id}` | Get single job with applicant count & distance (Public) |
@@ -348,7 +348,7 @@ All routes are versioned under `/api/v1/`.
 | | `DELETE`| `/api/v1/worker/saved-jobs/{jobId}`| Remove bookmark (Worker) |
 | | `GET` | `/api/v1/worker/earnings` | Line-by-line wallet transactions (Worker) |
 | | `GET` | `/api/v1/worker/earnings/summary`| Month-grouped earnings totals (Worker) |
-| | `GET` | `/api/v1/worker/wallet` | Earned, pending, and disputed wallet totals |
+| | `GET` | `/api/v1/worker/wallet` | Earned and pending wallet totals |
 | | `GET` | `/api/v1/worker/work-history` | Worker's completed and active bookings |
 | **Applications** | `POST` | `/api/v1/applications/{id}/withdraw` | Withdraw pending application (Worker) |
 | | `POST` | `/api/v1/applications/{id}/shortlist`| Shortlist applicant with proposed pay (WorkGiver) |
@@ -357,10 +357,9 @@ All routes are versioned under `/api/v1/`.
 | **Attendance** | `GET` | `/api/v1/jobs/{jobId}/check-in-code/{assignmentId}` | Read 4-digit check-in code (WorkGiver) |
 | | `POST` | `/api/v1/assignments/{id}/check-in` | Submit 4-digit check-in code on site (Worker) |
 | | `POST` | `/api/v1/assignments/{id}/complete` | Mark booking completed with overtime |
-| **Payments** | `GET` | `/api/v1/payments` | List caller's receipts (Worker, Giver, Admin) |
+| **Payments** | `GET` | `/api/v1/payments` | List caller's receipts, scoped by active mode |
 | | `POST` | `/api/v1/jobs/{jobId}/payments/{workerId}` | Release payment with 5% fee (WorkGiver) |
 | | `POST` | `/api/v1/payments/{id}/confirm` | Settle in-flight payment (WorkGiver / Webhook) |
-| | `POST` | `/api/v1/payments/{id}/refund` | Refund payment (Admin only) |
 | **Ratings** | `POST` | `/api/v1/ratings` | Submit star rating & feedback for completed job |
 | | `GET` | `/api/v1/ratings` | List feedback received |
 | **Profiles** | `GET` | `/api/v1/profile/me` | Full profile of signed-in user (Owner) |
@@ -370,9 +369,9 @@ All routes are versioned under `/api/v1/`.
 | | `PUT` | `/api/v1/profile/availability`| Replace weekly availability slots (Worker) |
 | | `PUT` | `/api/v1/profile/presence` | Update online/offline heartbeat (Worker) |
 | | `POST` | `/api/v1/profile/image` | Upload profile avatar (Multipart, Rate-limited) |
-| | `POST` | `/api/v1/profile/documents` | Upload KYC verification document (Worker) |
+| | `POST` | `/api/v1/profile/documents` | Upload KYC verification document (either mode) |
 | **Media** | `GET` | `/api/v1/media/profile-images/{file}` | Stream profile photo (Authenticated) |
-| | `GET` | `/api/v1/media/documents/{file}` | Stream identity document (Owner or Admin only) |
+| | `GET` | `/api/v1/media/documents/{file}` | Stream identity document (Owner only) |
 | **Messaging** | `GET` | `/api/v1/conversations` | List chat threads with unread counts |
 | | `POST` | `/api/v1/conversations` | Start or re-open 1-on-1 thread |
 | | `GET` | `/api/v1/conversations/{id}` | Get thread details & other user profile |
@@ -390,25 +389,9 @@ All routes are versioned under `/api/v1/`.
 | | `DELETE`| `/api/v1/devices` | Unregister all devices (Sign-out) |
 | **Verifications**| `GET` | `/api/v1/verifications` | Get caller's verification history & checklist |
 | | `GET` | `/api/v1/verifications/summary` | Get aggregated trust badge status |
-| | `POST` | `/api/v1/verifications` | Submit verification request for review |
-| | `POST` | `/api/v1/verifications/{id}/withdraw`| Withdraw pending verification request |
-| **Disputes** | `POST` | `/api/v1/disputes` | Raise booking dispute and hold pay |
-| | `GET` | `/api/v1/disputes` | List caller's active/past disputes |
-| | `GET` | `/api/v1/disputes/{id}` | View dispute details and resolution |
-| | `POST` | `/api/v1/support-reports` | File general platform support ticket |
-| **Admin Console**| `GET` | `/api/v1/admin/dashboard` | High-level metrics & queue counts |
-| | `GET` | `/api/v1/admin/verifications` | Review queue for KYC verification requests |
-| | `POST` | `/api/v1/admin/verifications/{id}/approve` | Approve document check & update badge |
-| | `POST` | `/api/v1/admin/verifications/{id}/reject` | Reject document check with explanation |
-| | `GET` | `/api/v1/admin/users` | Search and filter all users |
-| | `POST` | `/api/v1/admin/users/{id}/status` | Suspend or reinstate user account |
-| | `GET` | `/api/v1/admin/jobs` | Search and audit all posted jobs |
-| | `GET` | `/api/v1/admin/jobs/{id}` | View job detail with financial conversions |
-| | `GET` | `/api/v1/admin/disputes` | Open dispute review queue |
-| | `POST` | `/api/v1/admin/disputes/{id}/review` | Mark dispute under investigation |
-| | `POST` | `/api/v1/admin/disputes/{id}/resolve` | Close dispute and release payment hold |
-| | `GET` | `/api/v1/admin/support-reports` | Queue of submitted support reports |
-| | `POST` | `/api/v1/admin/support-reports/{id}/resolve` | Mark support report resolved |
+| | `POST` | `/api/v1/verifications` | Submit a verification request; approved immediately |
+| | `POST` | `/api/v1/verifications/{id}/withdraw`| Withdraw a pending (pre-auto-approval) request |
+| **Support** | `POST` | `/api/v1/support-reports` | File general platform support ticket |
 
 ---
 
@@ -423,7 +406,7 @@ Configured using ASP.NET Core `Microsoft.AspNetCore.RateLimiting` with fixed-win
   - `auth`: 10 requests per minute (login, registration, OTP send/verify, password reset).
   - `messaging`: 30 requests per minute (posting messages and starting threads).
   - `media`: 10 requests per minute (file uploads).
-  - `reports`: 5 requests per hour (disputes and support reports).
+  - `reports`: 5 requests per hour (support reports).
   - `verification`: 10 requests per hour (submitting KYC documents).
 - **Client Back-Off Contract**: On rejection (HTTP 429), returns `Retry-After` header and structured error response with estimated wait time.
 
@@ -445,15 +428,15 @@ The repository includes a comprehensive 3-tier test suite under `tests/`:
    - Uses `WebApplicationFactory<Program>` to spin up the real ASP.NET Core pipeline.
    - Tests execute against a real PostgreSQL instance (`jobmate_test`), executing real queries (including Haversine distance, text search, and groupings).
    - Database tables are truncated between test classes (`TestDatabase.ResetAsync`) while preserving the migration history table.
-   - Separate test suites verify every feature: Admin, Applications, Auth sessions, Jobs, Messaging, Notifications, Payments, Profiles, Ratings, Selection concurrency, Disputes, Verifications, and Rate Limiter behavior.
+   - Separate test suites verify every feature: Applications, Auth sessions and role switching, Jobs, Messaging, Notifications, Payments, Profiles, Ratings, Selection concurrency, Verifications, and Rate Limiter behavior.
 2. **`Jobmate.Application.Tests` (Domain & Unit)**:
    - Fast unit tests executing without database dependencies.
-   - Tests value objects (`EmailAddress`, `PhoneNumber`, `GeoDistance`), payment 5% fee calculations, rating bounds, dispute state machines, and rate limit partitioners.
+   - Tests value objects (`EmailAddress`, `PhoneNumber`, `GeoDistance`), payment 5% fee calculations, rating bounds and direction, selection rules, and rate limit partitioners.
 3. **`Jobmate.Infrastructure.Tests`**:
    - `SchemaConventionTests`: Verifies that the EF Core model matches all convention rules (snake_case column names, PK `{singular}_id`, index prefixes `ix_`/`ux_`, enum check constraints). Fails the build if a model change is missing a migration.
    - Password hasher verification and demo data gating tests.
 4. **Smoke Testing Script (`scripts/smoke-test.ps1`)**:
-   - An end-to-end PowerShell script that exercises reachability, worker registration, OTP verification, login with email/phone, token rotation, token replay detection, admin role isolation, and response envelope error shapes against a live running API.
+   - An end-to-end PowerShell script that exercises reachability, worker registration, OTP verification, login with email/phone, token rotation, token replay detection, switching between worker and work giver mode, and response envelope error shapes against a live running API.
 
 ---
 
@@ -477,7 +460,6 @@ dotnet user-secrets set "ConnectionStrings:ReadConnection" "Host=localhost;Port=
 dotnet user-secrets set "Jwt:Issuer" "jobmate-api"
 dotnet user-secrets set "Jwt:Audience" "jobmate-app"
 dotnet user-secrets set "Jwt:SigningKey" "a-secure-random-key-at-least-32-characters-long"
-dotnet user-secrets set "Seed:AdminPassword" "InitialAdminPassword123!"
 ```
 
 ### 10.3 Database Migrations Workflow

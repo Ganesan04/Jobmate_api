@@ -13,8 +13,7 @@ namespace Jobmate.Api.Tests.Features.Payments;
 /// Phase 4 acceptance tests for payments.
 ///
 /// The cases that matter most here are the ones where charging money twice would be
-/// possible: a retried request, a double tap, two givers racing for the same booking,
-/// and a refund that only an administrator may perform.
+/// possible: a retried request, a double tap, two givers racing for the same booking.
 /// </summary>
 public sealed class PaymentApiTests : IClassFixture<JobmateApiFactory>, IAsyncLifetime
 {
@@ -307,30 +306,7 @@ public sealed class PaymentApiTests : IClassFixture<JobmateApiFactory>, IAsyncLi
     // --------------------------------------------------------------------- refunds
 
     [Fact]
-    public async Task An_administrator_can_refund_a_settled_payment()
-    {
-        using var giver = await TestApi.CreateGiverAsync(_factory);
-        using var worker = await TestApi.CreateWorkerAsync(_factory);
-        using var admin = await TestData.CreateAdminAsync(_factory);
-
-        var jobId = await CreateJobAsync(giver);
-        await BookAsync(giver, worker, jobId);
-
-        var paid = await PayAsync(giver, worker, jobId, 1000);
-        var paymentId = paid.GetProperty("id").GetGuid();
-
-        var refunded = await TestApi.ReadJsonAsync(
-            await admin.Client.PostAsJsonAsync(
-                $"/api/v1/payments/{paymentId}/refund",
-                new { reason = "Worker never turned up." }),
-            HttpStatusCode.OK);
-
-        Assert.Equal("refunded", refunded.Data().GetProperty("status").GetString());
-        Assert.Equal(1050, refunded.Data().GetProperty("totalAmount").GetInt32());
-    }
-
-    [Fact]
-    public async Task A_giver_cannot_refund_their_own_payment()
+    public async Task The_refund_endpoint_no_longer_exists()
     {
         using var giver = await TestApi.CreateGiverAsync(_factory);
         using var worker = await TestApi.CreateWorkerAsync(_factory);
@@ -339,77 +315,13 @@ public sealed class PaymentApiTests : IClassFixture<JobmateApiFactory>, IAsyncLi
         await BookAsync(giver, worker, jobId);
 
         var paid = await PayAsync(giver, worker, jobId, 1000);
-        var paymentId = paid.GetProperty("id").GetGuid();
 
+        // Refunds were an administrator action, and there is no administrator any more.
         var response = await giver.Client.PostAsJsonAsync(
-            $"/api/v1/payments/{paymentId}/refund",
+            $"/api/v1/payments/{paid.GetProperty("id").GetGuid()}/refund",
             new { reason = "Changed my mind." });
 
-        await TestApi.ReadJsonAsync(response, HttpStatusCode.Forbidden);
-    }
-
-    [Fact]
-    public async Task A_worker_cannot_refund_their_own_earnings()
-    {
-        using var giver = await TestApi.CreateGiverAsync(_factory);
-        using var worker = await TestApi.CreateWorkerAsync(_factory);
-
-        var jobId = await CreateJobAsync(giver);
-        await BookAsync(giver, worker, jobId);
-
-        var paid = await PayAsync(giver, worker, jobId, 1000);
-        var paymentId = paid.GetProperty("id").GetGuid();
-
-        var response = await worker.Client.PostAsJsonAsync(
-            $"/api/v1/payments/{paymentId}/refund",
-            new { reason = "I want my money back." });
-
-        await TestApi.ReadJsonAsync(response, HttpStatusCode.Forbidden);
-    }
-
-    [Fact]
-    public async Task A_refund_needs_a_reason()
-    {
-        using var giver = await TestApi.CreateGiverAsync(_factory);
-        using var worker = await TestApi.CreateWorkerAsync(_factory);
-        using var admin = await TestData.CreateAdminAsync(_factory);
-
-        var jobId = await CreateJobAsync(giver);
-        await BookAsync(giver, worker, jobId);
-
-        var paid = await PayAsync(giver, worker, jobId, 1000);
-
-        var response = await admin.Client.PostAsJsonAsync(
-            $"/api/v1/payments/{paid.GetProperty("id").GetGuid()}/refund",
-            new { reason = "   " });
-
-        await TestApi.ReadJsonAsync(response, HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task A_payment_cannot_be_refunded_twice()
-    {
-        using var giver = await TestApi.CreateGiverAsync(_factory);
-        using var worker = await TestApi.CreateWorkerAsync(_factory);
-        using var admin = await TestData.CreateAdminAsync(_factory);
-
-        var jobId = await CreateJobAsync(giver);
-        await BookAsync(giver, worker, jobId);
-
-        var paid = await PayAsync(giver, worker, jobId, 1000);
-        var paymentId = paid.GetProperty("id").GetGuid();
-
-        await TestApi.ReadJsonAsync(
-            await admin.Client.PostAsJsonAsync(
-                $"/api/v1/payments/{paymentId}/refund",
-                new { reason = "First reversal." }),
-            HttpStatusCode.OK);
-
-        var second = await admin.Client.PostAsJsonAsync(
-            $"/api/v1/payments/{paymentId}/refund",
-            new { reason = "Second reversal." });
-
-        await TestApi.ReadJsonAsync(second, HttpStatusCode.BadRequest);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     // ---------------------------------------------------------------------- listing
@@ -460,31 +372,6 @@ public sealed class PaymentApiTests : IClassFixture<JobmateApiFactory>, IAsyncLi
             HttpStatusCode.OK);
 
         Assert.Equal(1, page.GetProperty("pagination").GetProperty("totalItems").GetInt32());
-    }
-
-    [Fact]
-    public async Task An_administrator_sees_every_payment()
-    {
-        using var giver = await TestApi.CreateGiverAsync(_factory);
-        using var other = await TestApi.CreateGiverAsync(_factory);
-        using var first = await TestApi.CreateWorkerAsync(_factory);
-        using var second = await TestApi.CreateWorkerAsync(_factory);
-        using var admin = await TestData.CreateAdminAsync(_factory);
-
-        var mine = await CreateJobAsync(giver);
-        var theirs = await CreateJobAsync(other);
-
-        await BookAsync(giver, first, mine);
-        await BookAsync(other, second, theirs);
-
-        await PayAsync(giver, first, mine, 1000);
-        await PayAsync(other, second, theirs, 4000);
-
-        var page = await TestApi.ReadJsonAsync(
-            await admin.Client.GetAsync("/api/v1/payments"),
-            HttpStatusCode.OK);
-
-        Assert.Equal(2, page.GetProperty("pagination").GetProperty("totalItems").GetInt32());
     }
 
     // --------------------------------------------------------------------- earnings
@@ -554,7 +441,6 @@ public sealed class PaymentApiTests : IClassFixture<JobmateApiFactory>, IAsyncLi
 
         Assert.Equal(950, wallet.GetProperty("totalEarned").GetInt32());
         Assert.Equal(1900, wallet.GetProperty("pendingAmount").GetInt32());
-        Assert.Equal(0, wallet.GetProperty("disputedAmount").GetInt32());
         Assert.Equal(2, wallet.GetProperty("entryCount").GetInt32());
     }
 

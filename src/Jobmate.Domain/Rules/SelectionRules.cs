@@ -40,6 +40,13 @@ public static class SelectionRules
             throw new BusinessRuleException("This application belongs to a different job.", "ApplicationJobMismatch");
         }
 
+        // One account can work and hire, so a giver could otherwise book themselves onto
+        // their own job. Applying is already refused; this covers a row that predates that.
+        if (application.WorkerId == job.GiverId)
+        {
+            throw new BusinessRuleException("You cannot hire yourself for your own job.", "OwnJob");
+        }
+
         if (application.Status is not (ApplicationStatus.Applied or ApplicationStatus.Viewed or ApplicationStatus.Shortlisted))
         {
             throw new BusinessRuleException(

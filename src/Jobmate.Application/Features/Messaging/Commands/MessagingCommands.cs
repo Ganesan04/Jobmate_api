@@ -259,7 +259,7 @@ public sealed class MarkConversationReadCommandHandler(
 /// POST /api/v1/conversations/{id}/archive.
 ///
 /// Archive rather than delete: deleting a thread would delete the other participant's copy
-/// of the conversation too, and would throw away the record a later dispute might need.
+/// of the conversation too, and would throw away the record a later support report might need.
 /// </summary>
 public sealed record ArchiveConversationCommand(Guid ConversationId, bool Archived) : IRequest<bool>;
 

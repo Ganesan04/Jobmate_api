@@ -11,8 +11,7 @@ namespace Jobmate.Application.Tests.Domain;
 ///
 /// Two properties are worth more than the rest, and both are about what a caller can and
 /// cannot move: the fee is the app's 5% and has to agree with the Flutter payment screen
-/// to the last rupee, and a dispute hold must be reversible without restamping the moment
-/// the money actually arrived.
+/// to the last rupee, and a settled payment must never be charged again.
 /// </summary>
 public sealed class PaymentRulesTests
 {
@@ -136,7 +135,7 @@ public sealed class PaymentCreationTests
     public void A_payment_starts_as_processing_and_snapshots_the_agreed_pay()
     {
         var assignment = Assignment();
-        var giver = new User { Id = assignment.GiverId, Role = UserRole.WorkGiver };
+        var giver = new User { Id = assignment.GiverId };
 
         var payment = PaymentRules.Create(assignment, giver, 1000, 200, PaymentMethod.Upi, "key-1", Now);
 
@@ -154,10 +153,10 @@ public sealed class PaymentCreationTests
     public void The_snapshot_is_the_pay_they_agreed_not_the_pay_being_charged()
     {
         // The booking was agreed at 1000 and the giver is now charging 1500. Both have to
-        // be on the row, because the dispute screen shows what was agreed next to what was
+        // be on the row, because the payment history shows what was agreed next to what was
         // paid and a mismatch between them is the whole question.
         var assignment = Assignment(agreedPay: 1000);
-        var giver = new User { Id = assignment.GiverId, Role = UserRole.WorkGiver };
+        var giver = new User { Id = assignment.GiverId };
 
         var payment = PaymentRules.Create(assignment, giver, 1500, null, PaymentMethod.Bank, "key-1", Now);
 
@@ -169,12 +168,12 @@ public sealed class PaymentCreationTests
     public void The_snapshot_is_the_bookings_own_total_including_its_overtime()
     {
         // The snapshot has to come from the booking, not from the amounts in the request:
-        // the dispute screen shows what was agreed next to what was charged, so a snapshot
+        // the payment history shows what was agreed next to what was charged, so a snapshot
         // built from the request would agree with itself by construction and prove nothing.
         var assignment = Assignment(agreedPay: 1000);
         assignment.OvertimeAmount = 250;
 
-        var giver = new User { Id = assignment.GiverId, Role = UserRole.WorkGiver };
+        var giver = new User { Id = assignment.GiverId };
 
         var payment = PaymentRules.Create(assignment, giver, 1200, null, PaymentMethod.Upi, "key-1", Now);
 
@@ -189,7 +188,7 @@ public sealed class PaymentCreationTests
         // the request instead would let a payer settle money into somebody else's account.
         var workerId = Guid.NewGuid();
         var assignment = Assignment(workerId: workerId);
-        var giver = new User { Id = assignment.GiverId, Role = UserRole.WorkGiver };
+        var giver = new User { Id = assignment.GiverId };
 
         var payment = PaymentRules.Create(assignment, giver, 1000, null, PaymentMethod.Upi, "key-1", Now);
 
@@ -202,7 +201,7 @@ public sealed class PaymentCreationTests
     public void Only_the_giver_who_owns_the_job_can_pay_for_it()
     {
         var assignment = Assignment();
-        var stranger = new User { Id = Guid.NewGuid(), Role = UserRole.WorkGiver };
+        var stranger = new User { Id = Guid.NewGuid() };
 
         var act = () => PaymentRules.Create(assignment, stranger, 1000, null, PaymentMethod.Upi, "key-1", Now);
 
@@ -213,7 +212,7 @@ public sealed class PaymentCreationTests
     public void A_cancelled_booking_cannot_be_paid()
     {
         var assignment = Assignment(status: AssignmentStatus.Cancelled);
-        var giver = new User { Id = assignment.GiverId, Role = UserRole.WorkGiver };
+        var giver = new User { Id = assignment.GiverId };
 
         var act = () => PaymentRules.Create(assignment, giver, 1000, null, PaymentMethod.Upi, "key-1", Now);
 
@@ -225,7 +224,7 @@ public sealed class PaymentCreationTests
     {
         var assignment = Assignment();
         assignment.Payment = new Payment { Status = PaymentStatus.Paid };
-        var giver = new User { Id = assignment.GiverId, Role = UserRole.WorkGiver };
+        var giver = new User { Id = assignment.GiverId };
 
         var act = () => PaymentRules.Create(assignment, giver, 1000, null, PaymentMethod.Upi, "key-1", Now);
 
@@ -238,7 +237,7 @@ public sealed class PaymentCreationTests
         // The common case: the charge bounced, and the giver tries once more.
         var assignment = Assignment();
         assignment.Payment = new Payment { Status = PaymentStatus.Failed };
-        var giver = new User { Id = assignment.GiverId, Role = UserRole.WorkGiver };
+        var giver = new User { Id = assignment.GiverId };
 
         var payment = PaymentRules.Create(assignment, giver, 1000, null, PaymentMethod.Upi, "key-1", Now);
 
@@ -246,7 +245,7 @@ public sealed class PaymentCreationTests
     }
 }
 
-/// <summary>Confirming, failing, retrying and refunding.</summary>
+/// <summary>Confirming, failing and retrying.</summary>
 public sealed class PaymentSettlementTests
 {
     private static readonly DateTime Now = new(2026, 3, 1, 10, 0, 0, DateTimeKind.Utc);
@@ -367,146 +366,6 @@ public sealed class PaymentSettlementTests
 
         payment.IdempotencyKey.Should().Be("key-original");
     }
-
-    [Theory]
-    [InlineData(PaymentStatus.Paid)]
-    [InlineData(PaymentStatus.Disputed)]
-    public void A_settled_payment_can_be_refunded(PaymentStatus status)
-    {
-        var payment = InStatus(status);
-
-        PaymentRules.Refund(payment, Guid.NewGuid(), Now);
-
-        payment.Status.Should().Be(PaymentStatus.Refunded);
-        payment.RefundedAt.Should().Be(Now);
-    }
-
-    [Theory]
-    [InlineData(PaymentStatus.Pending)]
-    [InlineData(PaymentStatus.Processing)]
-    [InlineData(PaymentStatus.Failed)]
-    public void An_unsettled_payment_cannot_be_refunded(PaymentStatus status)
-    {
-        // There is nothing to give back, and saying otherwise would be a way to make the
-        // ledger claim a payment was returned when no money ever arrived.
-        var payment = InStatus(status);
-
-        var act = () => PaymentRules.Refund(payment, Guid.NewGuid(), Now);
-
-        act.Should().Throw<BusinessRuleException>().Which.ErrorCode.Should().Be("InvalidPaymentTransition");
-    }
-}
-
-/// <summary>Holding money for a dispute, and giving it back.</summary>
-public sealed class PaymentDisputeHoldTests
-{
-    private static readonly DateTime PaidOn = new(2026, 2, 20, 9, 0, 0, DateTimeKind.Utc);
-
-    private static readonly DateTime ReleasedOn = new(2026, 3, 1, 10, 0, 0, DateTimeKind.Utc);
-
-    private static Payment Paid()
-    {
-        var payment = new Payment
-        {
-            Id = Guid.NewGuid(),
-            Amount = 1000,
-            PlatformFee = 50,
-            TotalAmount = 1050,
-            Status = PaymentStatus.Paid,
-            PaidAt = PaidOn
-        };
-
-        return payment;
-    }
-
-    [Fact]
-    public void A_paid_payment_can_be_held()
-    {
-        var payment = Paid();
-
-        PaymentRules.MarkDisputed(payment);
-
-        payment.Status.Should().Be(PaymentStatus.Disputed);
-    }
-
-    [Theory]
-    [InlineData(PaymentStatus.Pending)]
-    [InlineData(PaymentStatus.Processing)]
-    [InlineData(PaymentStatus.Failed)]
-    [InlineData(PaymentStatus.Refunded)]
-    [InlineData(PaymentStatus.Disputed)]
-    public void Only_money_that_actually_arrived_can_be_held(PaymentStatus status)
-    {
-        var payment = new Payment { Id = Guid.NewGuid(), Status = status };
-
-        var act = () => PaymentRules.MarkDisputed(payment);
-
-        act.Should().Throw<BusinessRuleException>().Which.ErrorCode.Should().Be("InvalidPaymentTransition");
-    }
-
-    [Fact]
-    public void Releasing_a_hold_returns_the_payment_to_paid()
-    {
-        var payment = Paid();
-        PaymentRules.MarkDisputed(payment);
-
-        PaymentRules.ReleaseFromDispute(payment, ReleasedOn);
-
-        payment.Status.Should().Be(PaymentStatus.Paid);
-    }
-
-    [Fact]
-    public void Releasing_a_hold_does_not_restamp_when_the_money_arrived()
-    {
-        // The worker was paid on the 20th and the hold lifted on the 1st. Restamping PaidAt
-        // would make a two-week-old payout look like it happened this afternoon, which is
-        // the one thing the payout history is for.
-        var payment = Paid();
-        PaymentRules.MarkDisputed(payment);
-
-        PaymentRules.ReleaseFromDispute(payment, ReleasedOn);
-
-        payment.PaidAt.Should().Be(PaidOn);
-    }
-
-    [Fact]
-    public void Releasing_a_hold_still_records_when_the_hold_lifted()
-    {
-        var payment = Paid();
-        PaymentRules.MarkDisputed(payment);
-
-        PaymentRules.ReleaseFromDispute(payment, ReleasedOn);
-
-        payment.UpdatedAt.Should().Be(ReleasedOn);
-    }
-
-    [Theory]
-    [InlineData(PaymentStatus.Paid)]
-    [InlineData(PaymentStatus.Processing)]
-    [InlineData(PaymentStatus.Refunded)]
-    [InlineData(PaymentStatus.Failed)]
-    public void Only_a_held_payment_can_be_released(PaymentStatus status)
-    {
-        // Releasing a payment that was never held would silently mark unpaid money as paid.
-        var payment = new Payment { Id = Guid.NewGuid(), Status = status };
-
-        var act = () => PaymentRules.ReleaseFromDispute(payment, ReleasedOn);
-
-        act.Should().Throw<BusinessRuleException>().Which.ErrorCode.Should().Be("InvalidPaymentTransition");
-    }
-
-    [Fact]
-    public void A_hold_can_be_lifted_and_raised_again()
-    {
-        // Not exotic: a resolved dispute can be reopened by a second one on the same booking.
-        var payment = Paid();
-        PaymentRules.MarkDisputed(payment);
-        PaymentRules.ReleaseFromDispute(payment, ReleasedOn);
-        PaymentRules.MarkDisputed(payment);
-
-        payment.Status.Should().Be(PaymentStatus.Disputed);
-        payment.PaidAt.Should().Be(PaidOn);
-    }
 }
 
 /// <summary>The transition table itself, so a new status cannot be added without a decision.</summary>
@@ -518,19 +377,13 @@ public sealed class PaymentStatusRulesTests
     [InlineData(PaymentStatus.Processing, PaymentStatus.Paid, true)]
     [InlineData(PaymentStatus.Processing, PaymentStatus.Failed, true)]
     [InlineData(PaymentStatus.Failed, PaymentStatus.Processing, true)]
-    [InlineData(PaymentStatus.Paid, PaymentStatus.Disputed, true)]
     [InlineData(PaymentStatus.Paid, PaymentStatus.Refunded, true)]
-    [InlineData(PaymentStatus.Disputed, PaymentStatus.Paid, true)]
-    [InlineData(PaymentStatus.Disputed, PaymentStatus.Refunded, true)]
     // Everything below is money moving backwards, or a state being re-entered.
     [InlineData(PaymentStatus.Paid, PaymentStatus.Processing, false)]
     [InlineData(PaymentStatus.Paid, PaymentStatus.Pending, false)]
     [InlineData(PaymentStatus.Paid, PaymentStatus.Failed, false)]
     [InlineData(PaymentStatus.Paid, PaymentStatus.Paid, false)]
-    [InlineData(PaymentStatus.Disputed, PaymentStatus.Disputed, false)]
-    [InlineData(PaymentStatus.Disputed, PaymentStatus.Processing, false)]
     [InlineData(PaymentStatus.Refunded, PaymentStatus.Paid, false)]
-    [InlineData(PaymentStatus.Refunded, PaymentStatus.Disputed, false)]
     [InlineData(PaymentStatus.Cancelled, PaymentStatus.Processing, false)]
     [InlineData(PaymentStatus.Failed, PaymentStatus.Paid, false)]
     [InlineData(PaymentStatus.Pending, PaymentStatus.Paid, false)]
@@ -552,14 +405,6 @@ public sealed class PaymentStatusRulesTests
     public void Only_paid_is_settled()
     {
         PaymentStatusRules.IsSettled(PaymentStatus.Paid).Should().BeTrue();
-        PaymentStatusRules.IsSettled(PaymentStatus.Disputed).Should().BeFalse();
         PaymentStatusRules.IsSettled(PaymentStatus.Refunded).Should().BeFalse();
-    }
-
-    [Fact]
-    public void Only_disputed_is_disputed()
-    {
-        PaymentStatusRules.IsDisputed(PaymentStatus.Disputed).Should().BeTrue();
-        PaymentStatusRules.IsDisputed(PaymentStatus.Paid).Should().BeFalse();
     }
 }

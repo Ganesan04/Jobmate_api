@@ -102,7 +102,6 @@ public sealed class WorkerAssignment : AuditableEntity
         PaymentStatus.Pending => PaymentStatus.Pending,
         PaymentStatus.Processing => PaymentStatus.Processing,
         PaymentStatus.Paid => PaymentStatus.Paid,
-        PaymentStatus.Disputed => PaymentStatus.Disputed,
         _ => PaymentStatus.Pending
     };
 }

@@ -172,47 +172,4 @@ public static class PaymentRules
         payment.Status = PaymentStatus.Processing;
         payment.FailureReason = null;
     }
-
-    public static void Refund(Payment payment, Guid adminId, DateTime now)
-    {
-        if (payment.Status != PaymentStatus.Paid && payment.Status != PaymentStatus.Disputed)
-        {
-            throw new BusinessRuleException("Only a settled payment can be refunded.", "InvalidPaymentTransition");
-        }
-
-        _ = adminId;
-        payment.Status = PaymentStatus.Refunded;
-        payment.RefundedAt = now;
-    }
-
-    public static void MarkDisputed(Payment payment)
-    {
-        if (!PaymentStatusRules.CanTransition(payment.Status, PaymentStatus.Disputed))
-        {
-            throw new BusinessRuleException("Only a paid payment can be disputed.", "InvalidPaymentTransition");
-        }
-
-        payment.Status = PaymentStatus.Disputed;
-    }
-
-    /// <summary>
-    /// Returns money that was held for a dispute to the worker once the dispute is closed.
-    ///
-    /// Deliberately not <see cref="Confirm"/>: the money already arrived when the payment
-    /// was first confirmed, so releasing it must not restamp <c>PaidAt</c> and hide when the
-    /// worker was actually paid. Only the status moves back, which is the whole meaning of
-    /// a hold being lifted.
-    /// </summary>
-    public static void ReleaseFromDispute(Payment payment, DateTime now)
-    {
-        if (payment.Status != PaymentStatus.Disputed)
-        {
-            throw new BusinessRuleException(
-                "Only a payment held for a dispute can be released.",
-                "InvalidPaymentTransition");
-        }
-
-        payment.Status = PaymentStatus.Paid;
-        payment.UpdatedAt = now;
-    }
 }

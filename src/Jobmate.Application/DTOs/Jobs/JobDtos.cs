@@ -179,6 +179,4 @@ public sealed record WorkerStatsDto
     public int Earnings { get; init; }
 
     public int PendingAmount { get; init; }
-
-    public int DisputedAmount { get; init; }
 }

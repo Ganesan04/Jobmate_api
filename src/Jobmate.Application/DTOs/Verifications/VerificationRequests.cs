@@ -15,14 +15,6 @@ public sealed record SubmitVerificationRequest
     public string? Note { get; init; }
 }
 
-/// <summary>Admin decision on a verification request.</summary>
-public sealed record ReviewVerificationRequest
-{
-    public string? Note { get; init; }
-
-    public string? RejectionReason { get; init; }
-}
-
 /// <summary>
 /// The caller's own verification history. GET /api/v1/verifications.
 ///

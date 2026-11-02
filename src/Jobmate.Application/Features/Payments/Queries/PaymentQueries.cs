@@ -14,10 +14,10 @@ namespace Jobmate.Application.Features.Payments.Queries;
 /// <summary>
 /// The caller's own payments. GET /api/v1/payments.
 ///
-/// One route serves both sides because the app shows the same list shape to each: a
-/// giver sees what they paid out, a worker sees what they received, and an
-/// administrator sees everything. The scope is taken from the caller's role, never
-/// from the request, so no filter can widen it.
+/// One route serves both sides because the app shows the same list shape to each: in
+/// giver mode the caller sees what they paid out, in worker mode what they received.
+/// The scope is taken from the caller's active role, never from the request, so no
+/// filter can widen it.
 /// </summary>
 public sealed record GetPaymentsQuery(GetPaymentsRequest Request) : IRequest<PagedResult<PaymentReceiptDto>>;
 
@@ -40,9 +40,6 @@ public sealed class GetPaymentsQueryHandler(
                 break;
             case UserRole.Worker:
                 source = source.Where(p => p.WorkerId == currentUser.UserId);
-                break;
-            case UserRole.Admin:
-                // An administrator sees every payment, so no scope is applied.
                 break;
             default:
                 throw new ForbiddenException("Payments are not available to this account.");
@@ -161,8 +158,7 @@ public sealed class GetEarningsQueryHandler(
 /// Month-grouped wallet totals. GET /api/v1/worker/earnings/summary.
 ///
 /// Settled and pending money are kept apart because they are not the same promise:
-/// only a paid booking is money the worker can spend. Disputed money is left out of
-/// both, since it is frozen until an administrator rules on it.
+/// only a paid booking is money the worker can spend.
 /// </summary>
 public sealed record GetEarningSummaryQuery : IRequest<List<EarningSummaryDto>>;
 
@@ -230,7 +226,6 @@ public sealed class GetWalletSummaryQueryHandler(
             PendingAmount = lines
                 .Where(l => l.Status is PaymentStatus.Pending or PaymentStatus.Processing)
                 .Sum(l => l.Amount),
-            DisputedAmount = lines.Where(l => l.Status == PaymentStatus.Disputed).Sum(l => l.Amount),
             EntryCount = lines.Count
         };
     }

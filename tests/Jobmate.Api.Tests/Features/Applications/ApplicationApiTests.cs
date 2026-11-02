@@ -118,14 +118,30 @@ public sealed class ApplicationApiTests : IClassFixture<JobmateApiFactory>, IAsy
 
         var jobId = await CreateJobAsync(giver);
 
-        // An account is either a giver or a worker, so the role gate refuses this before
-        // the handler runs. The domain's own-job rule is the backstop for a token whose
-        // role claim disagrees with the job's giver.
+        // In giver mode the role gate refuses this before the handler runs.
         var refused = await TestApi.ReadJsonAsync(
             await giver.Client.PostAsJsonAsync($"/api/v1/jobs/{jobId}/apply", new { message = "Me" }),
             HttpStatusCode.Forbidden);
 
         Assert.Equal("Forbidden", refused.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
+    public async Task Nobody_can_apply_to_their_own_job_even_after_switching_to_worker_mode()
+    {
+        // One account works and hires. Switching to worker mode passes the role gate, so
+        // it is the domain's own-job rule that has to refuse this.
+        var giver = await TestApi.CreateGiverAsync(_factory);
+
+        var jobId = await CreateJobAsync(giver);
+
+        using var asWorker = await giver.SwitchRoleAsync(Domain.Enums.UserRole.Worker);
+
+        var refused = await TestApi.ReadJsonAsync(
+            await asWorker.Client.PostAsJsonAsync($"/api/v1/jobs/{jobId}/apply", new { message = "Me" }),
+            HttpStatusCode.BadRequest);
+
+        Assert.Equal("OwnJob", refused.GetProperty("errorCode").GetString());
     }
 
     [Fact]

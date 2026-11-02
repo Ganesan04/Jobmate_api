@@ -4,9 +4,9 @@ using Jobmate.Domain.Enums;
 namespace Jobmate.Domain.Entities;
 
 /// <summary>
-/// Role-specific data for a <see cref="UserRole.WorkGiver"/>. Covers both
-/// individuals and registered businesses: <see cref="GiverKind"/> selects which
-/// fields the Flutter profile screen shows.
+/// Work-giver-mode data. Every user has one, alongside a <see cref="WorkerProfile"/>.
+/// Covers both individuals and registered businesses: <see cref="GiverKind"/> selects
+/// which fields the Flutter profile screen shows.
 /// </summary>
 public sealed class GiverProfile : AuditableEntity
 {
@@ -35,8 +35,6 @@ public sealed class GiverProfile : AuditableEntity
     public string? ContactPhone { get; set; }
 
     public string? GstNumber { get; set; }
-
-    public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.NotVerified;
 
     public decimal AverageRating { get; set; }
 

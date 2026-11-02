@@ -4,8 +4,10 @@ using Jobmate.Domain.Enums;
 namespace Jobmate.Domain.Entities;
 
 /// <summary>
-/// Role-specific data for a <see cref="UserRole.Worker"/>. Normalised rather than
-/// stored as a JSON blob: skills, documents and availability are their own tables.
+/// Worker-mode data. Every user has one, alongside a <see cref="GiverProfile"/>.
+/// Normalised rather than stored as a JSON blob: skills, documents and availability
+/// are their own tables. Verification lives on <see cref="User"/>, because it belongs
+/// to the person and counts in both modes.
 /// </summary>
 public sealed class WorkerProfile : AuditableEntity
 {
@@ -33,8 +35,6 @@ public sealed class WorkerProfile : AuditableEntity
     public decimal? ExpectedPay { get; set; }
 
     public PayType? ExpectedPayType { get; set; }
-
-    public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.NotVerified;
 
     /// <summary>Denormalised average of the ratings this worker received. Recomputed on rating write.</summary>
     public decimal AverageRating { get; set; }

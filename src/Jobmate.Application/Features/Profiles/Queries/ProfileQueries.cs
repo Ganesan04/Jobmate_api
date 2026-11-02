@@ -48,7 +48,7 @@ public sealed class GetMyProfileQueryHandler(
         {
             User = user.ToDto(),
             Worker = worker?.ToDto(),
-            Giver = giver?.ToDto(user.FullName),
+            Giver = giver?.ToDto(user),
             Documents =
             [
                 .. (worker?.Documents ?? [])

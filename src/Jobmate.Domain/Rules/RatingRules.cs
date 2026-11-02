@@ -54,7 +54,9 @@ public static class RatingRules
                 "CommentTooLong");
         }
 
-        var direction = from.Role == UserRole.WorkGiver
+        // From the job, not the account: one person can be a giver on one job and a
+        // worker on the next, so only the job says which side of it they were on.
+        var direction = from.Id == job.GiverId
             ? RatingDirection.GiverToWorker
             : RatingDirection.WorkerToGiver;
 

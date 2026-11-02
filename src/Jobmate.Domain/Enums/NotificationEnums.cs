@@ -24,7 +24,6 @@ public enum NotificationReferenceType
     Assignment = 3,
     Payment = 4,
     Conversation = 5,
-    Dispute = 6,
     Verification = 7,
     None = 8
 }

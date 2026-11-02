@@ -164,7 +164,6 @@ public sealed class RateLimitApiTests : IAsyncLifetime
         phone = phone ?? $"9{970000000 + attempt}",
         email = $"rate.{attempt}.{Guid.NewGuid():N}"[..22] + "@jobmate.test",
         password = "Passw0rd!2345",
-        role = (int)UserRole.Worker,
         area = "Delhi"
     };
 }

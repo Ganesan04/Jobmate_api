@@ -17,7 +17,10 @@ public static class TestApi
 
     public static JsonSerializerOptions Json { get; } = new(JsonSerializerDefaults.Web);
 
-    /// <summary>Registers a work giver and returns a client carrying their access token.</summary>
+    /// <summary>
+    /// Registers an account, switches it to work giver mode and returns a client carrying
+    /// the giver-mode token. Every account starts as a worker; this is the app's flow.
+    /// </summary>
     public static Task<AuthenticatedClient> CreateGiverAsync(
         JobmateApiFactory factory,
         string? area = "Delhi",
@@ -55,7 +58,6 @@ public static class TestApi
                 phone,
                 email,
                 password = "Passw0rd!2345",
-                role = (int)role,
                 area
             },
             cancellationToken);
@@ -69,7 +71,34 @@ public static class TestApi
 
         var userId = payload.GetProperty("data").GetProperty("user").GetProperty("id").GetGuid();
 
-        return new AuthenticatedClient(client, phone, email, role, userId);
+        var user = new AuthenticatedClient(client, phone, email, UserRole.Worker, userId);
+
+        return role == UserRole.Worker
+            ? user
+            : await user.SwitchRoleAsync(role, cancellationToken);
+    }
+
+    /// <summary>
+    /// Switches the account's mode through POST /auth/switch-role and puts the new access
+    /// token on the same client, the way the app replaces its stored token.
+    /// </summary>
+    public static async Task<AuthenticatedClient> SwitchRoleAsync(
+        this AuthenticatedClient user,
+        UserRole role,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = await ReadJsonAsync(
+            await user.Client.PostAsJsonAsync(
+                "/api/v1/auth/switch-role",
+                new { role = role == UserRole.Worker ? "worker" : "workGiver" },
+                cancellationToken),
+            cancellationToken: cancellationToken);
+
+        user.Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            payload.Data().GetProperty("accessToken").GetString());
+
+        return user with { Role = role };
     }
 
     /// <summary>Reads the response envelope, failing with the server's message when it is not a success.</summary>

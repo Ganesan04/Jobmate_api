@@ -43,7 +43,7 @@ public static class TestDatabase
     /// migration, at most once per test run.
     ///
     /// The schema has to be in place before the host is built, because <c>Program.cs</c>
-    /// seeds the admin account while the host starts. That makes this step a
+    /// runs the demo seeder while the host starts. That makes this step a
     /// prerequisite of host construction rather than a fixture hook, which xUnit is not
     /// obliged to call a fixed number of times, hence the lock and the flag.
     /// </summary>

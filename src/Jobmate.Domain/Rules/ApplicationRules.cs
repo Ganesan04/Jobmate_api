@@ -54,11 +54,6 @@ public static class ApplicationRules
                 "AlreadyApplied");
         }
 
-        if (worker.Role != UserRole.Worker)
-        {
-            throw new BusinessRuleException("Only worker accounts can apply to jobs.", "WrongRole");
-        }
-
         if (!worker.IsActive)
         {
             throw new ForbiddenException("Your account has been deactivated.");

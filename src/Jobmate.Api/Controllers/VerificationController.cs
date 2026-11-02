@@ -11,10 +11,8 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace Jobmate.Api.Controllers;
 
 /// <summary>
-/// The trust badge, and the requests behind it.
-///
-/// Reads and withdrawals are the user's own; the decision itself is an admin action on
-/// <c>/admin/verifications</c>. Splitting them is what stops a user approving themselves.
+/// The trust badge, and the requests behind it. The badge belongs to the person, so it
+/// is the same in worker and work giver mode.
 /// </summary>
 [ApiController]
 [Route("api/v{version:apiVersion}/verifications")]
@@ -58,15 +56,15 @@ public sealed class VerificationController(IMediator mediator) : ControllerBase
         return Ok(new ApiResponse<VerificationSummaryDto>(summary));
     }
 
-    /// <summary>POST /api/v1/verifications — asks for one kind of check to be reviewed.</summary>
+    /// <summary>POST /api/v1/verifications — submits one kind of check; it is approved immediately.</summary>
     /// <remarks>
     /// Send the <c>documentUrl</c> returned by <c>POST /profile/documents</c> to attach the
-    /// uploaded file. One live request per type: asking again while one is pending is a
-    /// 409, because two open requests for the same check leave an admin with no way to tell
-    /// which document is current.
+    /// uploaded file. The response is the approved request, and the user's badge is
+    /// recomputed. A type that still has a pending request from before auto-approval is a
+    /// 409 until that request is withdrawn.
     ///
     /// Phone and email checks are refused up front if the account has no number or address
-    /// to check — a request an admin could only ever reject is not worth sending.
+    /// to check.
     /// </remarks>
     [HttpPost]
     [EnableRateLimiting(RateLimitPolicies.Verification)]
@@ -83,14 +81,14 @@ public sealed class VerificationController(IMediator mediator) : ControllerBase
 
         return Created(
             $"/api/v1/verifications",
-            new ApiResponse<VerificationRequestDto>(submitted, "Verification requested."));
+            new ApiResponse<VerificationRequestDto>(submitted, "Verification approved."));
     }
 
     /// <summary>POST /api/v1/verifications/{id}/withdraw — takes a pending request back.</summary>
     /// <remarks>
     /// Not a delete: the attempt stays in the history, recorded as withdrawn, so it is
     /// clear the applicant chose to stop rather than being refused. Only a pending request
-    /// can be withdrawn.
+    /// can be withdrawn; new requests are approved on submission, so an approved one is a 400.
     /// </remarks>
     [HttpPost("{id:guid}/withdraw")]
     [ProducesResponseType(typeof(ApiResponse<VerificationRequestDto>), StatusCodes.Status200OK)]

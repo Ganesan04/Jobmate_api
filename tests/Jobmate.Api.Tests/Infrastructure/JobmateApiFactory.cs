@@ -57,7 +57,6 @@ public class JobmateApiFactory : WebApplicationFactory<Program>
         ["Jwt:AccessTokenMinutes"] = "60",
         ["Jwt:RefreshTokenDays"] = "30",
         ["Jwt:RequireHttpsMetadata"] = "false",
-        ["Seed:AdminPassword"] = "IntegrationTestAdmin!123",
 
         // Abuse guards are effectively off for the rest of the suite.
         //
@@ -109,7 +108,7 @@ public class JobmateApiFactory : WebApplicationFactory<Program>
     /// Prepares the test database and starts the host, at most once per run.
     ///
     /// The schema has to be in place before the host starts, because <c>Program.cs</c>
-    /// seeds the admin account while composing the host. The work is guarded by a lock
+    /// runs the demo seeder while composing the host. The work is guarded by a lock
     /// rather than by <see cref="IAsyncLifetime"/>, which xUnit is not obliged to call
     /// a fixed number of times for a class fixture.
     /// </summary>
@@ -133,8 +132,8 @@ public class JobmateApiFactory : WebApplicationFactory<Program>
 
             await TestDatabase.EnsureReadyAsync();
 
-            // Creating a client builds the host, which migrates nothing but does seed
-            // the admin; the caller resets afterwards so it starts from nothing.
+            // Creating a client builds the host, which migrates nothing; the caller resets
+            // afterwards so it starts from nothing.
             using var probe = CreateAnonymousClient();
 
             _started = true;

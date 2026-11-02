@@ -2,7 +2,6 @@ using Jobmate.Application.Common;
 using Jobmate.Application.Common.Interfaces;
 using Jobmate.Application.DTOs.Auth;
 using Jobmate.Domain.Entities;
-using Jobmate.Domain.Enums;
 using Jobmate.Domain.Exceptions;
 using Jobmate.Domain.ValueObjects;
 using MediatR;
@@ -93,59 +92,5 @@ public sealed class ResetPasswordCommandHandler(
         logger.LogInformation("Password reset completed for user {UserId}", user.Id);
 
         return new GenericMessageDto { Message = "Your password has been reset. Please sign in." };
-    }
-}
-
-/// <summary>
-/// Signs in the internal admin console. Admin accounts are rejected here even with
-/// correct credentials, so the admin surface is reachable only through its own endpoint.
-/// </summary>
-public sealed record AdminLoginCommand(string Email, string Password) : IRequest<AuthResultDto>;
-
-public sealed class AdminLoginCommandHandler(
-    IAppDbContext db,
-    IPasswordHasher passwordHasher,
-    ITokenService tokenService,
-    IClock clock,
-    ILogger<AdminLoginCommandHandler> logger) : IRequestHandler<AdminLoginCommand, AuthResultDto>
-{
-    public async Task<AuthResultDto> Handle(AdminLoginCommand request, CancellationToken cancellationToken)
-    {
-        var now = clock.UtcNow;
-
-        if (!EmailAddress.TryCreate(request.Email, out var email) || email is null)
-        {
-            throw new UnauthorizedException("Invalid admin credentials.");
-        }
-
-        var user = await db.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email == email.Value, cancellationToken);
-
-        if (user is null || user.Role != UserRole.Admin)
-        {
-            logger.LogWarning("Failed admin sign-in attempt");
-            throw new UnauthorizedException("Invalid admin credentials.");
-        }
-
-        if (!passwordHasher.Verify(request.Password, user.PasswordHash))
-        {
-            logger.LogWarning("Failed admin sign-in attempt: password mismatch");
-            throw new UnauthorizedException("Invalid admin credentials.");
-        }
-
-        if (!user.IsActive)
-        {
-            throw new ForbiddenException("This admin account has been deactivated.");
-        }
-
-        var tracked = await db.Users.FirstAsync(u => u.Id == user.Id, cancellationToken);
-        tracked.LastLoginAt = now;
-
-        var (tokens, _) = AuthResultFactory.IssueTokens(db, tokenService, tracked, now);
-
-        await db.SaveChangesAsync(cancellationToken);
-
-        return AuthResultFactory.Build(tracked, tokens, UserRole.Admin, requiresOtp: false);
     }
 }

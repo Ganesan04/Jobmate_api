@@ -20,7 +20,7 @@ public sealed class RatingRulesTests
     private static User Worker(Guid? id = null) => new()
     {
         Id = id ?? Guid.NewGuid(),
-        Role = UserRole.Worker,
+        ActiveRole = UserRole.Worker,
         FirstName = "Deepak",
         LastName = "Kumar"
     };
@@ -28,7 +28,7 @@ public sealed class RatingRulesTests
     private static User Giver(Guid? id = null) => new()
     {
         Id = id ?? Guid.NewGuid(),
-        Role = UserRole.WorkGiver,
+        ActiveRole = UserRole.WorkGiver,
         FirstName = "Anita",
         LastName = "Sharma"
     };
@@ -106,6 +106,22 @@ public sealed class RatingRulesTests
 
         rating.RatingDirection.Should().Be(RatingDirection.WorkerToGiver);
         rating.WorkerAssignmentId.Should().BeNull();
+    }
+
+    [Fact]
+    public void The_direction_comes_from_the_job_not_the_mode_the_rater_is_in()
+    {
+        // One account works and hires. The giver here happens to be in worker mode and the
+        // worker in giver mode; the job still says who posted it and who was booked.
+        var giver = Worker();
+        var worker = Giver();
+        var job = CompletedJob(giver.Id, worker.Id);
+
+        RatingRules.Create(job, giver, worker, 5, null, Now)
+            .RatingDirection.Should().Be(RatingDirection.GiverToWorker);
+
+        RatingRules.Create(job, worker, giver, 5, null, Now)
+            .RatingDirection.Should().Be(RatingDirection.WorkerToGiver);
     }
 
     [Fact]

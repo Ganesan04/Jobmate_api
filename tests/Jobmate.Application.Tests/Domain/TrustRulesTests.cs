@@ -232,7 +232,7 @@ public sealed class VerificationSummaryTests
     }
 }
 
-/// <summary>Raising a verification request, and deciding one.</summary>
+/// <summary>Raising a verification request, which is approved on the spot.</summary>
 public sealed class VerificationRulesTests
 {
     private static readonly DateTime Now = new(2026, 3, 1, 10, 0, 0, DateTimeKind.Utc);
@@ -241,26 +241,20 @@ public sealed class VerificationRulesTests
         new()
         {
             Id = Guid.NewGuid(),
-            Role = UserRole.Worker,
             PhoneNumber = phone,
             Email = email
         };
 
-    private static VerificationRequest Pending(VerificationType type = VerificationType.Identity) => new()
-    {
-        Id = Guid.NewGuid(),
-        UserId = Guid.NewGuid(),
-        Type = type,
-        Status = VerificationRequestStatus.Pending
-    };
-
     [Fact]
-    public void A_new_request_starts_pending_and_trims_what_was_sent()
+    public void A_new_request_is_approved_on_the_spot_and_trims_what_was_sent()
     {
         var request = VerificationRules.Create(
             UserWith(), VerificationType.Identity, "  id_front.jpg  ", "  a note  ", Now);
 
-        request.Status.Should().Be(VerificationRequestStatus.Pending);
+        // There is no reviewer: the request is approved as it is raised, by nobody.
+        request.Status.Should().Be(VerificationRequestStatus.Approved);
+        request.ReviewedAt.Should().Be(Now);
+        request.ReviewedByUserId.Should().BeNull();
         request.DocumentName.Should().Be("id_front.jpg");
         request.Note.Should().Be("a note");
         request.CreatedAt.Should().Be(Now);
@@ -301,96 +295,6 @@ public sealed class VerificationRulesTests
         var request = VerificationRules.Create(user, VerificationType.Skills, null, null, Now);
 
         request.UserId.Should().Be(user.Id);
-    }
-
-    [Fact]
-    public void Approving_records_the_reviewer_and_the_moment()
-    {
-        var request = Pending();
-        var adminId = Guid.NewGuid();
-
-        VerificationRules.Approve(request, adminId, Now);
-
-        request.Status.Should().Be(VerificationRequestStatus.Approved);
-        request.ReviewedByUserId.Should().Be(adminId);
-        request.ReviewedAt.Should().Be(Now);
-        request.RejectionReason.Should().BeNull();
-    }
-
-    [Fact]
-    public void Approving_clears_a_reason_left_over_from_a_previous_decision()
-    {
-        // A request that is resubmitted after a rejection must not keep showing the old
-        // reason to whoever reviews it next.
-        var request = Pending();
-        request.Status = VerificationRequestStatus.Rejected;
-        request.RejectionReason = "Photo was too blurry";
-        request.Status = VerificationRequestStatus.Pending;
-
-        VerificationRules.Approve(request, Guid.NewGuid(), Now);
-
-        request.RejectionReason.Should().BeNull();
-    }
-
-    [Fact]
-    public void Rejecting_keeps_the_reason_so_the_applicant_can_fix_it()
-    {
-        var request = Pending();
-
-        VerificationRules.Reject(request, Guid.NewGuid(), "  The photo was too blurry to read.  ", Now);
-
-        request.Status.Should().Be(VerificationRequestStatus.Rejected);
-        request.RejectionReason.Should().Be("The photo was too blurry to read.");
-        request.ReviewedAt.Should().Be(Now);
-    }
-
-    [Fact]
-    public void A_rejection_without_a_reason_is_refused()
-    {
-        // The rule lives in the domain, not a validator, so it holds for every caller.
-        var request = Pending();
-
-        var act = () => VerificationRules.Reject(request, Guid.NewGuid(), "   ", Now);
-
-        act.Should().Throw<BusinessRuleException>().Which.ErrorCode.Should().Be("RejectionReasonRequired");
-        request.Status.Should().Be(VerificationRequestStatus.Pending);
-    }
-
-    [Theory]
-    [InlineData(VerificationRequestStatus.Approved)]
-    [InlineData(VerificationRequestStatus.Rejected)]
-    [InlineData(VerificationRequestStatus.Withdrawn)]
-    public void A_request_cannot_be_decided_twice(VerificationRequestStatus decided)
-    {
-        // A second tap on the review button, or a retried request, must not overwrite the
-        // decision that was already recorded.
-        var request = Pending();
-        request.Status = decided;
-
-        var approve = () => VerificationRules.Approve(request, Guid.NewGuid(), Now);
-        var reject = () => VerificationRules.Reject(request, Guid.NewGuid(), "no", Now);
-
-        approve.Should().Throw<BusinessRuleException>().Which.ErrorCode.Should().Be("AlreadyReviewed");
-        reject.Should().Throw<BusinessRuleException>().Which.ErrorCode.Should().Be("AlreadyReviewed");
-        request.Status.Should().Be(decided);
-    }
-
-    [Theory]
-    [InlineData(VerificationRequestStatus.Pending, VerificationRequestStatus.Approved, true)]
-    [InlineData(VerificationRequestStatus.Pending, VerificationRequestStatus.Rejected, true)]
-    // Withdrawal is the applicant taking the request back, not an admin decision, so it is
-    // set by the withdraw command rather than going through this table.
-    [InlineData(VerificationRequestStatus.Pending, VerificationRequestStatus.Withdrawn, false)]
-    [InlineData(VerificationRequestStatus.Approved, VerificationRequestStatus.Rejected, false)]
-    [InlineData(VerificationRequestStatus.Rejected, VerificationRequestStatus.Approved, false)]
-    [InlineData(VerificationRequestStatus.Withdrawn, VerificationRequestStatus.Approved, false)]
-    [InlineData(VerificationRequestStatus.Approved, VerificationRequestStatus.Approved, false)]
-    public void The_review_transition_table_is_exactly_this(
-        VerificationRequestStatus from,
-        VerificationRequestStatus to,
-        bool allowed)
-    {
-        VerificationRules.CanTransition(from, to).Should().Be(allowed);
     }
 
     [Theory]

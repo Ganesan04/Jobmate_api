@@ -81,12 +81,6 @@ public sealed record PaymentChargeResult(
         new(false, null, reason, raw);
 }
 
-/// <summary>A refund request against a settled payment.</summary>
-public sealed record PaymentRefundRequest(Guid PaymentId, int Amount, string Reason, string IdempotencyKey);
-
-/// <summary>Provider outcome for a refund attempt.</summary>
-public sealed record PaymentRefundResult(bool Success, string? Reference, string? FailureReason);
-
 /// <summary>
 /// Payment gateway abstraction. <c>MockPaymentService</c> is the only implementation
 /// until a real PSP (Razorpay / Cashfree / Stripe) is chosen; because the Application
@@ -97,8 +91,6 @@ public interface IPaymentService
     string ProviderName { get; }
 
     Task<PaymentChargeResult> ChargeAsync(PaymentChargeRequest request, CancellationToken cancellationToken = default);
-
-    Task<PaymentRefundResult> RefundAsync(PaymentRefundRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Verifies a webhook signature. Always false for the mock provider.</summary>
     Task<bool> VerifyWebhookSignatureAsync(string payload, string? signature, CancellationToken cancellationToken = default);

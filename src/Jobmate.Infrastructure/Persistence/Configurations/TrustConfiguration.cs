@@ -33,54 +33,9 @@ public sealed class VerificationRequestConfiguration : IEntityTypeConfiguration<
             .HasForeignKey(r => r.ReviewedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // The admin verification queue, and a user's own request history.
-        builder.HasIndex(r => new { r.Status, r.CreatedAt }).HasDatabaseName("ix_verification_requests_status_created");
+        // A user's own request history.
         builder.HasIndex(r => new { r.UserId, r.Type, r.Status })
             .HasDatabaseName("ix_verification_requests_user_type_status");
-    }
-}
-
-public sealed class DisputeConfiguration : IEntityTypeConfiguration<Dispute>
-{
-    public void Configure(EntityTypeBuilder<Dispute> builder)
-    {
-        builder.ToTable("disputes");
-        builder.HasJobmateKey();
-        builder.HasJobmateAuditColumns();
-
-        builder.Property(d => d.JobId).HasColumnName("job_id").IsRequired();
-        builder.Property(d => d.RaisedByUserId).HasColumnName("raised_by_user_id").IsRequired();
-        builder.Property(d => d.AgainstUserId).HasColumnName("against_user_id").IsRequired();
-        builder.Property(d => d.Reason).HasColumnName("reason").HasConversion<string>().HasMaxLength(30).IsRequired();
-        builder.Property(d => d.Description).HasColumnName("description").HasMaxLength(2000).IsRequired();
-        builder.Property(d => d.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
-        builder.Property(d => d.Amount).HasColumnName("amount").HasDefaultValue(0);
-        builder.Property(d => d.Resolution).HasColumnName("resolution").HasMaxLength(1000);
-        builder.Property(d => d.ResolvedByUserId).HasColumnName("resolved_by_user_id");
-        builder.Property(d => d.ResolvedAt).HasColumnName("resolved_at").HasColumnType("timestamptz");
-
-        builder.HasOne(d => d.Job)
-            .WithMany(j => j.Disputes)
-            .HasForeignKey(d => d.JobId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        builder.HasOne(d => d.RaisedBy)
-            .WithMany()
-            .HasForeignKey(d => d.RaisedByUserId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(d => d.AgainstUser)
-            .WithMany()
-            .HasForeignKey(d => d.AgainstUserId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(d => d.ResolvedBy)
-            .WithMany()
-            .HasForeignKey(d => d.ResolvedByUserId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasIndex(d => new { d.Status, d.CreatedAt }).HasDatabaseName("ix_disputes_status_created");
-        builder.HasIndex(d => new { d.JobId, d.Status }).HasDatabaseName("ix_disputes_job_status");
     }
 }
 

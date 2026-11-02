@@ -24,7 +24,7 @@ public sealed record AuthResultDto
 
     public UserProfileDto User { get; init; } = new();
 
-    /// <summary>Echoed when registration required a role choice the backend then applied.</summary>
+    /// <summary>The mode the account is in, and the role claim the access token carries.</summary>
     public UserRole? SelectedRole { get; init; }
 
     /// <summary>True when the phone is still unverified and the app should route to /otp.</summary>

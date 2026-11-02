@@ -63,7 +63,7 @@ public sealed class LoginCommandHandler(
 
         await db.SaveChangesAsync(cancellationToken);
 
-        return AuthResultFactory.Build(user, tokens, user.Role, requiresOtp: !user.IsVerified);
+        return AuthResultFactory.Build(user, tokens, user.ActiveRole, requiresOtp: !user.IsVerified);
     }
 
     /// <summary>
@@ -156,7 +156,7 @@ public sealed class RefreshTokenCommandHandler(
 
         await db.SaveChangesAsync(cancellationToken);
 
-        return AuthResultFactory.Build(stored.User, tokens, stored.User.Role, requiresOtp: !stored.User.IsVerified);
+        return AuthResultFactory.Build(stored.User, tokens, stored.User.ActiveRole, requiresOtp: !stored.User.IsVerified);
     }
 }
 

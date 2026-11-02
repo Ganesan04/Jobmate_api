@@ -39,7 +39,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Domain.Entities.Notification> Notifications => Set<Domain.Entities.Notification>();
     public DbSet<Domain.Entities.UserDevice> UserDevices => Set<Domain.Entities.UserDevice>();
     public DbSet<Domain.Entities.VerificationRequest> VerificationRequests => Set<Domain.Entities.VerificationRequest>();
-    public DbSet<Domain.Entities.Dispute> Disputes => Set<Domain.Entities.Dispute>();
     public DbSet<Domain.Entities.SavedJob> SavedJobs => Set<Domain.Entities.SavedJob>();
     public DbSet<Domain.Entities.SupportReport> SupportReports => Set<Domain.Entities.SupportReport>();
 

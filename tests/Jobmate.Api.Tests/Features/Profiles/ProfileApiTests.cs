@@ -14,7 +14,7 @@ namespace Jobmate.Api.Tests.Features.Profiles;
 /// update — a form that fails on one field must not wipe the rest. The second, and the
 /// reason the public endpoint has its own DTO at all, is that one user's contact details
 /// never reach another user, while a private identity document never reaches anyone but
-/// its owner and an admin.
+/// its owner.
 /// </summary>
 public sealed class ProfileApiTests : IClassFixture<JobmateApiFactory>, IAsyncLifetime
 {
@@ -36,22 +36,22 @@ public sealed class ProfileApiTests : IClassFixture<JobmateApiFactory>, IAsyncLi
     // ------------------------------------------------------------------- reading
 
     [Fact]
-    public async Task A_worker_sees_their_own_profile_with_the_role_fields()
+    public async Task A_new_account_has_both_profiles_and_starts_in_worker_mode()
     {
         using var worker = await TestApi.CreateWorkerAsync(_factory);
 
         var profile = await MyProfileAsync(worker);
 
         Assert.Equal(worker.UserId, profile.GetProperty("user").GetProperty("id").GetGuid());
-        Assert.Equal("worker", profile.GetProperty("worker").GetProperty("user").GetProperty("role").GetString());
+        Assert.Equal("worker", profile.GetProperty("user").GetProperty("role").GetString());
 
-        // Null properties are omitted rather than written as null, so the absent half of
-        // the profile is simply not on the payload.
-        Assert.False(profile.TryGetProperty("giver", out _));
+        // Every account can work and hire, so both halves are there from registration on.
+        Assert.Equal(JsonValueKind.Object, profile.GetProperty("worker").ValueKind);
+        Assert.Equal("individual", profile.GetProperty("giver").GetProperty("kind").GetString());
     }
 
     [Fact]
-    public async Task An_employer_sees_a_giver_profile_instead()
+    public async Task Switching_to_giver_mode_keeps_both_profiles()
     {
         using var giver = await TestApi.CreateGiverAsync(_factory);
 
@@ -59,7 +59,7 @@ public sealed class ProfileApiTests : IClassFixture<JobmateApiFactory>, IAsyncLi
 
         Assert.Equal("workGiver", profile.GetProperty("user").GetProperty("role").GetString());
         Assert.Equal("individual", profile.GetProperty("giver").GetProperty("kind").GetString());
-        Assert.False(profile.TryGetProperty("worker", out _));
+        Assert.Equal(JsonValueKind.Object, profile.GetProperty("worker").ValueKind);
     }
 
     [Fact]
@@ -376,7 +376,7 @@ public sealed class ProfileApiTests : IClassFixture<JobmateApiFactory>, IAsyncLi
     }
 
     [Fact]
-    public async Task An_identity_document_is_private_to_its_owner_and_an_admin()
+    public async Task An_identity_document_is_private_to_its_owner()
     {
         using var worker = await TestApi.CreateWorkerAsync(_factory);
         using var stranger = await TestApi.CreateWorkerAsync(_factory);

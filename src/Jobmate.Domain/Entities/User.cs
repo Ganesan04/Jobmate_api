@@ -4,9 +4,9 @@ using Jobmate.Domain.Enums;
 namespace Jobmate.Domain.Entities;
 
 /// <summary>
-/// The single authentication and identity table for every account. Role specific
-/// data lives in <see cref="WorkerProfile"/> or <see cref="GiverProfile"/> rather
-/// than in parallel user tables, so login, refresh and revocation are handled once.
+/// The single authentication and identity table for every account. Mode specific
+/// data lives in <see cref="WorkerProfile"/> and <see cref="GiverProfile"/>; every
+/// user has both, so one account can work and hire.
 /// </summary>
 public sealed class User : AuditableEntity
 {
@@ -22,7 +22,12 @@ public sealed class User : AuditableEntity
     /// <summary>BCrypt hash. Never leaves the Infrastructure boundary.</summary>
     public string PasswordHash { get; set; } = string.Empty;
 
-    public UserRole Role { get; set; }
+    /// <summary>
+    /// The mode the user is currently in, not what they are allowed to be: every account
+    /// has both profiles and can switch at any time. Carried as the token's role claim,
+    /// so <c>[Authorize(Roles = ...)]</c> checks the current mode.
+    /// </summary>
+    public UserRole ActiveRole { get; set; } = UserRole.Worker;
 
     public string? ProfileImageUrl { get; set; }
 

@@ -1,4 +1,3 @@
-using Jobmate.Application.DTOs.Admin;
 using Jobmate.Application.DTOs.Profiles;
 using Jobmate.Domain.Entities;
 using Jobmate.Domain.Enums;
@@ -20,7 +19,7 @@ public static class UserMappings
         Name = user.FullName,
         Phone = user.PhoneNumber,
         Email = user.Email ?? string.Empty,
-        Role = user.Role,
+        Role = user.ActiveRole,
         Area = user.Area,
         Skills = [.. skills ?? user.WorkerProfile?.Skills.Select(s => s.Name) ?? []],
         Rating = user.WorkerProfile?.AverageRating ?? user.GiverProfile?.AverageRating ?? 0m,
@@ -32,23 +31,6 @@ public static class UserMappings
         Verification = user.VerificationStatus,
         JoinedOn = user.CreatedAt,
         Initials = Initials(user.FullName)
-    };
-
-    public static AdminUserDto ToAdminDto(this User user, int jobsCount, decimal rating) => new()
-    {
-        Id = user.Id,
-        Name = user.FullName,
-        Phone = user.PhoneNumber,
-        Email = user.Email ?? string.Empty,
-        Role = user.Role,
-        Verification = user.VerificationStatus,
-        IsActive = user.IsActive,
-        JoinedOn = user.CreatedAt,
-        JobsCount = jobsCount,
-        Area = user.Area,
-        Rating = rating,
-        PhoneLast4 = user.PhoneNumber.Length >= 4 ? int.Parse(user.PhoneNumber[^4..]) : null,
-        LastLoginAt = user.LastLoginAt
     };
 
     /// <summary>Mirrors the Dart <c>UserProfile.displayInitials</c> computation.</summary>
@@ -110,7 +92,7 @@ public static class ProfileMappings
         ],
         ExpectedPay = profile.ExpectedPay.HasValue ? (int)profile.ExpectedPay.Value : null,
         ExpectedPayType = profile.ExpectedPayType,
-        VerificationStatus = profile.VerificationStatus,
+        VerificationStatus = profile.User?.VerificationStatus ?? VerificationStatus.NotVerified,
         AverageRating = profile.AverageRating,
         RatingCount = profile.RatingCount,
         TotalCompletedJobs = profile.TotalCompletedJobs,
@@ -119,13 +101,17 @@ public static class ProfileMappings
         IsOnline = profile.IsOnline
     };
 
-    public static GiverProfileDto ToDto(this GiverProfile profile, string fallbackName) => new()
+    /// <summary>
+    /// Projects a work giver profile. Takes the owner explicitly because the verified badge
+    /// is the person's, not the profile's, and must match what worker mode shows.
+    /// </summary>
+    public static GiverProfileDto ToDto(this GiverProfile profile, User owner) => new()
     {
         Id = profile.Id,
         UserId = profile.UserId,
-        Name = profile.User?.FullName ?? fallbackName,
+        Name = owner.FullName,
         Organisation = profile.BusinessName,
-        ContactPerson = profile.ContactPerson ?? profile.User?.FullName ?? string.Empty,
+        ContactPerson = profile.ContactPerson ?? owner.FullName,
         TotalHired = profile.TotalHired,
         Rating = profile.AverageRating,
         Kind = profile.Kind,
@@ -135,7 +121,7 @@ public static class ProfileMappings
         Latitude = profile.Latitude,
         Longitude = profile.Longitude,
         ContactPhone = profile.ContactPhone,
-        VerificationStatus = profile.VerificationStatus,
+        VerificationStatus = owner.VerificationStatus,
         TotalJobsPosted = profile.TotalJobsPosted
     };
 
