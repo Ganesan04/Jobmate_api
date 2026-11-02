@@ -12,11 +12,12 @@ using Microsoft.EntityFrameworkCore;
 namespace Jobmate.Application.Features.Verifications.Commands;
 
 /// <summary>
-/// Starts a verification request. POST /api/v1/verifications.
+/// Submits a verification request. POST /api/v1/verifications.
 ///
-/// One live request per type per user. A user who already has an identity check pending
-/// cannot open a second one: two live requests for the same check would leave an admin
-/// deciding between them with no way to tell which document is the current one.
+/// Approved immediately: there is no review queue. The request belongs to the person, so
+/// the recomputed badge counts in both worker and work giver mode. A type that still has
+/// a pending request from before auto-approval cannot be submitted again until that one
+/// is withdrawn, so the history never holds two live requests for the same check.
 /// </summary>
 public sealed record SubmitVerificationCommand(SubmitVerificationRequest Request)
     : IRequest<VerificationRequestDto>;
@@ -24,6 +25,7 @@ public sealed record SubmitVerificationCommand(SubmitVerificationRequest Request
 public sealed class SubmitVerificationCommandHandler(
     IAppDbContext db,
     ICurrentUser currentUser,
+    INotificationService notifications,
     IClock clock) : IRequestHandler<SubmitVerificationCommand, VerificationRequestDto>
 {
     public async Task<VerificationRequestDto> Handle(
@@ -51,11 +53,9 @@ public sealed class SubmitVerificationCommandHandler(
         }
 
         // Checks the request is answerable: a phone check with no number, or an email
-        // check with no address, is a request no admin could ever approve.
+        // check with no address, is not something that can be verified.
         var submission = VerificationRules.Create(user, input.Type, input.DocumentName, input.Note, now);
 
-        // The uploaded document is a WorkerDocument row; linking it here is what lets an
-        // admin open the file from the queue without a second lookup.
         if (!string.IsNullOrWhiteSpace(input.DocumentUrl))
         {
             submission.DocumentUrl = input.DocumentUrl;
@@ -63,28 +63,40 @@ public sealed class SubmitVerificationCommandHandler(
 
         db.VerificationRequests.Add(submission);
 
-        // A request in flight moves the user to pending, but never back down: a user who
-        // is already rejected shows rejected until the new attempt is decided, because
-        // flipping them to pending would hide the rejection they need to act on.
-        if (user.VerificationStatus != VerificationStatus.Rejected)
-        {
-            user.VerificationStatus = VerificationStatus.Pending;
-        }
+        // Recomputed from the whole history rather than folded forward, so the stored
+        // status can never drift from the badge GET /verifications/summary shows.
+        var history = await db.VerificationRequests
+            .AsNoTracking()
+            .Where(v => v.UserId == user.Id)
+            .ToListAsync(cancellationToken);
 
+        var rollup = VerificationSummary.Build(history.Append(submission));
+
+        user.VerificationStatus = rollup.Overall;
         user.UpdatedAt = now;
 
         await db.SaveChangesAsync(cancellationToken);
 
-        return submission.ToDto(VerificationStatus.Pending);
+        await notifications.SendAsync(
+            user.Id,
+            NotificationType.ApplicationUpdate,
+            "Verification approved",
+            $"Your {input.Type.ToString().ToLowerInvariant()} check was approved.",
+            NotificationReferenceType.Verification,
+            submission.Id,
+            "/verifications",
+            cancellationToken);
+
+        return submission.ToDto(rollup.StatusOf(submission.Type));
     }
 }
 
 /// <summary>
 /// Withdraws a pending request. POST /api/v1/verifications/{id}/withdraw.
 ///
-/// A separate action rather than a delete, because the history of what was submitted and
-/// rejected is part of the record an admin may need to look back at, and because a
-/// withdrawn row still tells the user "you tried this and took it back".
+/// New requests are approved on submission, so this only applies to pending rows created
+/// before that; an approved request is refused with a 400. A separate action rather than
+/// a delete, because a withdrawn row still tells the user "you tried this and took it back".
 /// </summary>
 public sealed record WithdrawVerificationCommand(Guid RequestId, WithdrawVerificationRequest Request)
     : IRequest<VerificationRequestDto>;

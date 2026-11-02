@@ -11,8 +11,8 @@ public enum MediaKind
     ProfileImage,
 
     /// <summary>
-    /// Identity and skill documents. Private: readable by the worker who uploaded them and
-    /// by an admin reviewing a verification, and by nobody else.
+    /// Identity and skill documents. Private: readable by the person who uploaded them and
+    /// by nobody else.
     /// </summary>
     Document
 }

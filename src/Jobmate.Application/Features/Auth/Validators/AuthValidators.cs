@@ -1,8 +1,6 @@
 using FluentValidation;
 using Jobmate.Application.DTOs.Auth;
-using Jobmate.Domain.Entities;
-using Jobmate.Domain.Enums;
-using Jobmate.Domain.ValueObjects;
+using Jobmate.Application.Features.Auth.Commands;
 
 namespace Jobmate.Application.Features.Auth.Validators;
 
@@ -51,10 +49,18 @@ public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest
         RuleFor(x => x.Password).SetValidator(new PasswordRule());
 
         RuleFor(x => x.Area).MaximumLength(120).WithMessage("Area cannot exceed 120 characters.");
+    }
+}
 
+/// <summary>On the command, not the request, so the MediatR validation pipeline runs it.</summary>
+public sealed class SwitchRoleCommandValidator : AbstractValidator<SwitchRoleCommand>
+{
+    public SwitchRoleCommandValidator()
+    {
         RuleFor(x => x.Role)
-            .Must(r => r is null or UserRole.Worker or UserRole.WorkGiver)
-            .WithMessage("Choose either the worker or work giver role.");
+            .NotNull().WithMessage("Choose either the worker or work giver role.")
+            .IsInEnum().WithMessage("Choose either the worker or work giver role.")
+            .WithName("role");
     }
 }
 
@@ -80,10 +86,6 @@ public sealed class VerifyOtpRequestValidator : AbstractValidator<VerifyOtpReque
             .NotEmpty().WithMessage("Enter the verification code.")
             .Length(6).WithMessage("The verification code is 6 digits.")
             .Matches(@"^\d{6}$").WithMessage("The verification code is 6 digits.");
-
-        RuleFor(x => x.Role)
-            .Must(r => r is null or UserRole.Worker or UserRole.WorkGiver)
-            .WithMessage("Choose either the worker or work giver role.");
     }
 }
 
@@ -121,14 +123,5 @@ public sealed class ResetPasswordRequestValidator : AbstractValidator<ResetPassw
             .Matches(@"^\d{6}$").WithMessage("The reset code is 6 digits.");
 
         RuleFor(x => x.NewPassword).SetValidator(new PasswordRule());
-    }
-}
-
-public sealed class AdminLoginRequestValidator : AbstractValidator<AdminLoginRequest>
-{
-    public AdminLoginRequestValidator()
-    {
-        RuleFor(x => x.Email).NotEmpty().WithMessage("Email address is required.").EmailAddress();
-        RuleFor(x => x.Password).NotEmpty().WithMessage("Password is required.");
     }
 }

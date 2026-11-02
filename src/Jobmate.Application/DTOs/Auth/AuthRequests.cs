@@ -3,7 +3,7 @@ using Jobmate.Domain.Enums;
 
 namespace Jobmate.Application.DTOs.Auth;
 
-/// <summary>POST /auth/register and POST /auth/otp/verify request.</summary>
+/// <summary>POST /auth/register. No role: every account can work and hire.</summary>
 public sealed record RegisterRequest
 {
     public string Name { get; init; } = string.Empty;
@@ -14,13 +14,13 @@ public sealed record RegisterRequest
 
     public string Password { get; init; } = string.Empty;
 
-    /// <summary>
-    /// The role chosen on the Flutter role-selection step. Omitted means Worker,
-    /// which is what the app defaults to.
-    /// </summary>
-    public UserRole? Role { get; init; }
-
     public string? Area { get; init; }
+}
+
+/// <summary>POST /auth/switch-role. The mode to move into: worker or workGiver.</summary>
+public sealed record SwitchRoleRequest
+{
+    public UserRole? Role { get; init; }
 }
 
 /// <summary>
@@ -40,9 +40,6 @@ public sealed record VerifyOtpRequest
     public string Phone { get; init; } = string.Empty;
 
     public string Code { get; init; } = string.Empty;
-
-    /// <summary>Set when the OTP was issued during registration, so the role step can be completed.</summary>
-    public UserRole? Role { get; init; }
 }
 
 /// <summary>POST /auth/resend-otp.</summary>
@@ -80,12 +77,4 @@ public sealed record ResetPasswordRequest
     public string Code { get; init; } = string.Empty;
 
     public string NewPassword { get; init; } = string.Empty;
-}
-
-/// <summary>POST /admin/auth/login. Email-only: the admin console has its own flow.</summary>
-public sealed record AdminLoginRequest
-{
-    public string Email { get; init; } = string.Empty;
-
-    public string Password { get; init; } = string.Empty;
 }

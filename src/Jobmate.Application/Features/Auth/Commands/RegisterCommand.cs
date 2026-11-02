@@ -12,16 +12,15 @@ using Microsoft.EntityFrameworkCore;
 namespace Jobmate.Application.Features.Auth.Commands;
 
 /// <summary>
-/// Registers a worker or work giver. The account is created immediately in an
-/// unverified state and an OTP is dispatched, which mirrors the Flutter flow:
-/// register -> /otp -> role selection -> profile setup.
+/// Registers an account. The account is created immediately in an unverified state and
+/// an OTP is dispatched. There is no role choice: every account gets both a worker and a
+/// work giver profile, starts in worker mode, and switches with POST /auth/switch-role.
 /// </summary>
 public sealed record RegisterCommand(
     string Name,
     string Phone,
     string Email,
     string Password,
-    UserRole? Role,
     string? Area) : IRequest<AuthResultDto>;
 
 public sealed class RegisterCommandHandler(
@@ -38,14 +37,6 @@ public sealed class RegisterCommandHandler(
 
         var phone = PhoneNumber.Create(request.Phone);
         var email = EmailAddress.Create(request.Email);
-        var role = request.Role ?? UserRole.Worker;
-
-        if (role == UserRole.Admin)
-        {
-            throw new BusinessRuleException(
-                "Admin accounts cannot be self-registered.",
-                "AdminSelfRegistrationBlocked");
-        }
 
         var phoneExists = await db.Users
             .AsNoTracking()
@@ -70,7 +61,7 @@ public sealed class RegisterCommandHandler(
             PhoneNumber = phone.E164,
             Email = email.Value,
             PasswordHash = passwordHasher.Hash(request.Password),
-            Role = role,
+            ActiveRole = UserRole.Worker,
             Area = request.Area?.Trim() ?? string.Empty,
             IsActive = true,
             IsVerified = false,
@@ -79,29 +70,24 @@ public sealed class RegisterCommandHandler(
             UpdatedAt = now
         };
 
-        // Role-specific profile is created up front so the profile-setup step can save into it.
-        if (role == UserRole.Worker)
+        // Both profiles are created up front, so switching mode never has to create one
+        // and the profile-setup step for either mode can save straight into it.
+        user.WorkerProfile = new WorkerProfile
         {
-            user.WorkerProfile = new WorkerProfile
-            {
-                UserId = user.Id,
-                VerificationStatus = VerificationStatus.NotVerified,
-                CreatedAt = now,
-                UpdatedAt = now
-            };
-        }
-        else
+            UserId = user.Id,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        user.GiverProfile = new GiverProfile
         {
-            user.GiverProfile = new GiverProfile
-            {
-                UserId = user.Id,
-                Kind = GiverKind.Individual,
-                BusinessName = string.IsNullOrWhiteSpace(request.Area) ? string.Empty : request.Name.Trim(),
-                ContactPerson = string.IsNullOrWhiteSpace(request.Name) ? string.Empty : request.Name.Trim(),
-                CreatedAt = now,
-                UpdatedAt = now
-            };
-        }
+            UserId = user.Id,
+            Kind = GiverKind.Individual,
+            BusinessName = string.IsNullOrWhiteSpace(request.Area) ? string.Empty : request.Name.Trim(),
+            ContactPerson = string.IsNullOrWhiteSpace(request.Name) ? string.Empty : request.Name.Trim(),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
 
         db.Users.Add(user);
 
@@ -112,7 +98,7 @@ public sealed class RegisterCommandHandler(
 
         await db.SaveChangesAsync(cancellationToken);
 
-        return AuthResultFactory.Build(user, tokens, role, requiresOtp: true);
+        return AuthResultFactory.Build(user, tokens, user.ActiveRole, requiresOtp: true);
     }
 
     internal static (string First, string Last) SplitName(string? name)
@@ -148,7 +134,7 @@ public sealed class ResendOtpCommandHandler(IOtpService otpService, OtpServiceHe
 }
 
 /// <summary>Consumes an OTP, marks the phone verified and returns a token pair.</summary>
-public sealed record VerifyOtpCommand(string Phone, string Code, UserRole? Role) : IRequest<AuthResultDto>;
+public sealed record VerifyOtpCommand(string Phone, string Code) : IRequest<AuthResultDto>;
 
 public sealed class VerifyOtpCommandHandler(
     IAppDbContext db,
@@ -169,29 +155,11 @@ public sealed class VerifyOtpCommandHandler(
 
         challenge.ConsumedAt = now;
 
-        // The role choice belongs to finishing registration. A verified account re-running
-        // OTP must not be able to swap roles, because that drops the other role's profile.
-        var canChooseRole = !user.IsVerified;
-
         user.IsVerified = true;
 
         // The trust badge the profile screen renders is driven by VerificationStatus,
         // so a confirmed phone number must move it too, not just the boolean.
         user.VerificationStatus = VerificationStatus.Verified;
-
-        // Registration completes on OTP verification, so the role choice lands here.
-        var appliedRole = user.Role;
-        if (canChooseRole && request.Role is { } requested && requested != UserRole.Admin && user.Role != requested)
-        {
-            user.Role = requested;
-            appliedRole = requested;
-            ReconcileProfile(user, requested, now);
-        }
-
-        if (user.WorkerProfile is not null)
-        {
-            user.WorkerProfile.VerificationStatus = VerificationStatus.Verified;
-        }
 
         user.LastLoginAt = now;
 
@@ -199,35 +167,6 @@ public sealed class VerifyOtpCommandHandler(
 
         await db.SaveChangesAsync(cancellationToken);
 
-        return AuthResultFactory.Build(user, tokens, appliedRole, requiresOtp: false);
-    }
-
-    /// <summary>Keeps exactly one role profile in sync when the role changes at verification time.</summary>
-    private static void ReconcileProfile(User user, UserRole role, DateTime now)
-    {
-        if (role == UserRole.Worker)
-        {
-            user.WorkerProfile ??= new WorkerProfile
-            {
-                UserId = user.Id,
-                CreatedAt = now,
-                UpdatedAt = now
-            };
-
-            user.GiverProfile = null;
-            return;
-        }
-
-        user.GiverProfile ??= new GiverProfile
-        {
-            UserId = user.Id,
-            Kind = GiverKind.Individual,
-            BusinessName = user.FullName,
-            ContactPerson = user.FullName,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
-
-        user.WorkerProfile = null;
+        return AuthResultFactory.Build(user, tokens, user.ActiveRole, requiresOtp: false);
     }
 }

@@ -171,12 +171,12 @@ public sealed class ProfileController(IMediator mediator, LocalMediaStore mediaS
     /// <summary>POST /api/v1/profile/documents — uploads an identity or skill document.</summary>
     /// <remarks>
     /// Multipart: a <c>file</c> part and a <c>type</c> field of identity, phone, email,
-    /// skills or address. The document is stored and listed as pending; send its
-    /// <c>url</c> to <c>POST /verifications</c> to have it reviewed. Documents are private
-    /// to the worker who uploaded them and to an admin.
+    /// skills or address. Send its <c>url</c> to <c>POST /verifications</c> to verify it.
+    /// Available in either mode, because verification belongs to the person. Documents
+    /// are private to whoever uploaded them.
     /// </remarks>
     [HttpPost("documents")]
-    [Authorize(Roles = "Worker")]
+    [Authorize]
     [EnableRateLimiting(RateLimitPolicies.Media)]
     [RequestSizeLimit(6 * 1024 * 1024)]
     [Consumes("multipart/form-data")]
@@ -210,7 +210,7 @@ public sealed class ProfileController(IMediator mediator, LocalMediaStore mediaS
 ///
 /// Split into two routes because the two families have different audiences: a profile
 /// photo is shown to anyone signed in, while an identity document is readable only by the
-/// worker who uploaded it and by an admin. One route for both would mean either
+/// person who uploaded it. One route for both would mean either
 /// publishing everyone's passports or hiding every avatar.
 /// </summary>
 [ApiController]

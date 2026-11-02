@@ -96,7 +96,6 @@ $register = Invoke-Api -Path '/api/v1/auth/register' -Body @{
     phone    = $phone
     email    = "worker$suffix@example.com"
     password = 'Passw0rd!'
-    role     = 'worker'
 }
 
 Assert -Name 'register returns 200'        -Condition $register.Ok -Detail "status $($register.Status)"
@@ -109,13 +108,12 @@ $duplicate = Invoke-Api -Path '/api/v1/auth/register' -Body @{
     phone    = $phone
     email    = "other$suffix@example.com"
     password = 'Passw0rd!'
-    role     = 'worker'
 }
 Assert -Name 'duplicate phone is rejected with 409' -Condition ($duplicate.Status -eq 409) -Detail "status $($duplicate.Status)"
 
 $weakPassword = Invoke-Api -Path '/api/v1/auth/register' -Body @{
     name = 'Weak'; phone = "8$suffix"; email = "weak$suffix@example.com"
-    password = 'short'; role = 'worker'
+    password = 'short'
 }
 Assert -Name 'weak password fails validation with 400' -Condition ($weakPassword.Status -eq 400) -Detail "status $($weakPassword.Status)"
 
@@ -158,26 +156,21 @@ Assert -Name 'refreshed access token differs' -Condition ($refresh.Body.data.acc
 $replay = Invoke-Api -Path '/api/v1/auth/refresh' -Body @{ refreshToken = $login.Body.data.refreshToken }
 Assert -Name 'reusing a rotated refresh token is rejected with 401' -Condition ($replay.Status -eq 401) -Detail "status $($replay.Status)"
 
-# ------------------------------------------------------------------ admin
-Write-Host "`nAdmin isolation" -ForegroundColor Cyan
+# ------------------------------------------------------------------ switch role
+Write-Host "`nAuth: switching between worker and work giver" -ForegroundColor Cyan
 
-$adminLogin = Invoke-Api -Path '/api/v1/admin/auth/login' -Body @{
-    email    = 'admin@jobmate.app'
-    password = (Get-Content "$env:TEMP\opencode\jobmate_admin_pw.txt" -Raw).Trim()
-}
+Assert -Name 'new account starts in worker mode' -Condition ($verify.Body.data.user.role -eq 'worker') -Detail "got '$($verify.Body.data.user.role)'"
 
-if ($adminLogin.Ok) {
-    $adminAuth = @{ Authorization = "Bearer $($adminLogin.Body.data.accessToken)" }
+$switch = Invoke-Api -Path '/api/v1/auth/switch-role' -Body @{ role = 'workGiver' } -Headers $workerAuth
+Assert -Name 'switch-role returns 200' -Condition $switch.Ok -Detail "status $($switch.Status)"
+Assert -Name 'switch-role reports the new mode' -Condition ($switch.Body.data.user.role -eq 'workGiver') -Detail "got '$($switch.Body.data.user.role)'"
+Assert -Name 'switch-role issues a new access token' -Condition ($switch.Body.data.accessToken -ne $workerToken)
 
-    $asAdmin = Invoke-Api -Path '/api/v1/admin/dashboard' -Headers $adminAuth
-    Assert -Name 'admin token reaches an admin endpoint' -Condition $asAdmin.Ok -Detail "status $($asAdmin.Status)"
+$switchBack = Invoke-Api -Path '/api/v1/auth/switch-role' -Body @{ role = 'worker' } -Headers @{ Authorization = "Bearer $($switch.Body.data.accessToken)" }
+Assert -Name 'switching back to worker succeeds' -Condition ($switchBack.Body.data.user.role -eq 'worker') -Detail "got '$($switchBack.Body.data.user.role)'"
 
-    $asWorker = Invoke-Api -Path '/api/v1/admin/dashboard' -Headers $workerAuth
-    Assert -Name 'worker token is refused on the admin surface (403)' -Condition ($asWorker.Status -eq 403) -Detail "status $($asWorker.Status)"
-}
-else {
-    Write-Host '  SKIP  admin checks (admin password file not found; run with the local secret available)' -ForegroundColor Yellow
-}
+$workerToken = $switchBack.Body.data.accessToken
+$workerAuth  = @{ Authorization = "Bearer $workerToken" }
 
 # ------------------------------------------------------------------ envelope
 Write-Host "`nResponse envelope and error shape" -ForegroundColor Cyan

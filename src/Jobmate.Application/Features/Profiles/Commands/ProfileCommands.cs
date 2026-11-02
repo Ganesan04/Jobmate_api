@@ -191,7 +191,7 @@ public sealed class UpdateGiverProfileCommandHandler(
 
         await db.SaveChangesAsync(cancellationToken);
 
-        return profile.ToDto(user.FullName);
+        return profile.ToDto(user);
     }
 }
 

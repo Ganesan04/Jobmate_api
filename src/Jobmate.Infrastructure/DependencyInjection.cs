@@ -65,11 +65,9 @@ public static class DependencyInjection
         services.AddScoped<IAppDbContext>(provider =>
             provider.GetRequiredService<AppDbContext>());
 
-        services.AddScoped<AdminSeeder>();
-
-        // Resolved unconditionally at startup and gated inside itself, the same shape as
-        // the admin seeder: whether demo data is allowed to run is a decision the seeder
-        // makes from its own configuration rather than one the composition root guesses.
+        // Resolved unconditionally at startup and gated inside itself: whether demo data is
+        // allowed to run is a decision the seeder makes from its own configuration rather
+        // than one the composition root guesses.
         services.AddScoped<DemoDataSeeder>();
     }
 

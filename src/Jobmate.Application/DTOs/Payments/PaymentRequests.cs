@@ -50,9 +50,3 @@ public sealed record WorkerEarningsRequest : Domain.Common.PageRequest
 
     public DateOnly? To { get; init; }
 }
-
-/// <summary>POST /payments/{id}/refund — admin only.</summary>
-public sealed record RefundPaymentRequest
-{
-    public string Reason { get; init; } = string.Empty;
-}

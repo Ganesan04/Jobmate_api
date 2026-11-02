@@ -41,7 +41,7 @@ public sealed class JwtService(IOptions<JwtOptions> options) : ITokenService
             new(ClaimTypes.Name, user.FullName),
             new(ClaimTypes.Email, user.Email ?? string.Empty),
             new(ClaimTypes.MobilePhone, user.PhoneNumber),
-            new(ClaimTypes.Role, user.Role.ToString()),
+            new(ClaimTypes.Role, user.ActiveRole.ToString()),
             new(AuthClaimKeys.Area, user.Area ?? string.Empty)
         };
 
@@ -59,7 +59,7 @@ public sealed class JwtService(IOptions<JwtOptions> options) : ITokenService
             accessExpiresAt,
             refreshExpiresAt,
             user.Id,
-            user.Role);
+            user.ActiveRole);
     }
 
     public ClaimsPrincipal? ValidateAccessToken(string token)

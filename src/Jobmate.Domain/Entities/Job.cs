@@ -134,8 +134,6 @@ public sealed class Job : AuditableEntity
 
     public ICollection<Rating> Ratings { get; set; } = new List<Rating>();
 
-    public ICollection<Dispute> Disputes { get; set; } = new List<Dispute>();
-
     /// <summary>Set when the giver deletes a draft. The row stays, and queries skip it.</summary>
     public DateTime? DeletedAt { get; set; }
 

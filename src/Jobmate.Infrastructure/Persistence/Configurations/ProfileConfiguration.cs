@@ -24,7 +24,6 @@ public sealed class WorkerProfileConfiguration : IEntityTypeConfiguration<Worker
         builder.Property(p => p.Availability).HasColumnName("availability").HasMaxLength(200);
         builder.Property(p => p.ExpectedPay).HasColumnName("expected_pay").HasPrecision(12, 2);
         builder.Property(p => p.ExpectedPayType).HasColumnName("expected_pay_type").HasConversion<string>().HasMaxLength(20);
-        builder.Property(p => p.VerificationStatus).HasColumnName("verification_status").HasConversion<string>().HasMaxLength(20);
         builder.Property(p => p.AverageRating).HasColumnName("average_rating").HasPrecision(3, 2).HasDefaultValue(0m);
         builder.Property(p => p.RatingCount).HasColumnName("rating_count").HasDefaultValue(0);
         builder.Property(p => p.TotalCompletedJobs).HasColumnName("total_completed_jobs").HasDefaultValue(0);
@@ -42,7 +41,6 @@ public sealed class WorkerProfileConfiguration : IEntityTypeConfiguration<Worker
 
         // The worker discovery screen filters on these, so they are indexed together.
         builder.HasIndex(p => new { p.IsAvailable, p.IsOnline }).HasDatabaseName("ix_worker_profiles_availability");
-        builder.HasIndex(p => p.VerificationStatus).HasDatabaseName("ix_worker_profiles_verification");
     }
 }
 
@@ -144,7 +142,6 @@ public sealed class GiverProfileConfiguration : IEntityTypeConfiguration<GiverPr
         builder.Property(p => p.ContactPerson).HasColumnName("contact_person").HasMaxLength(120);
         builder.Property(p => p.ContactPhone).HasColumnName("contact_phone").HasMaxLength(20);
         builder.Property(p => p.GstNumber).HasColumnName("gst_number").HasMaxLength(20);
-        builder.Property(p => p.VerificationStatus).HasColumnName("verification_status").HasConversion<string>().HasMaxLength(20);
         builder.Property(p => p.AverageRating).HasColumnName("average_rating").HasPrecision(3, 2).HasDefaultValue(0m);
         builder.Property(p => p.RatingCount).HasColumnName("rating_count").HasDefaultValue(0);
         builder.Property(p => p.TotalJobsPosted).HasColumnName("total_jobs_posted").HasDefaultValue(0);
@@ -156,6 +153,5 @@ public sealed class GiverProfileConfiguration : IEntityTypeConfiguration<GiverPr
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(p => p.UserId).IsUnique().HasDatabaseName("ix_giver_profiles_user_id");
-        builder.HasIndex(p => p.VerificationStatus).HasDatabaseName("ix_giver_profiles_verification");
     }
 }

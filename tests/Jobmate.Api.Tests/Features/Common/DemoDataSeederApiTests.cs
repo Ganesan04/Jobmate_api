@@ -16,8 +16,8 @@ namespace Jobmate.Api.Tests.Features.Common;
 /// The seeder is invoked directly with a configuration that claims Development, because the
 /// test host is deliberately <em>not</em> Development: that is the first thing asserted
 /// here. The rest checks that the scenario it writes is the one the rest of the app can
-/// read — jobs in several states, a booking with a settled payment, something in each admin
-/// queue — and that running it twice does not double the rows.
+/// read — jobs in several states, a booking with a settled payment, verification history
+/// and a support report — and that running it twice does not double the rows.
 /// </summary>
 public sealed class DemoDataSeederApiTests : IAsyncLifetime
 {
@@ -59,8 +59,14 @@ public sealed class DemoDataSeederApiTests : IAsyncLifetime
         // Employers, workers, and the jobs in between them. Five jobs: four one-off and one
         // recurring, because the weekday rows are the one part of a job that is normalised
         // out and would otherwise never appear in a development database.
-        Assert.Equal(3, await db.Users.CountAsync(u => u.Role == UserRole.WorkGiver));
-        Assert.Equal(4, await db.Users.CountAsync(u => u.Role == UserRole.Worker));
+        Assert.Equal(3, await db.Users.CountAsync(u => u.ActiveRole == UserRole.WorkGiver));
+        Assert.Equal(4, await db.Users.CountAsync(u => u.ActiveRole == UserRole.Worker));
+
+        // Every account can work and hire, so every one has both profiles, the same pair
+        // registration creates.
+        Assert.Equal(7, await db.WorkerProfiles.CountAsync());
+        Assert.Equal(7, await db.GiverProfiles.CountAsync());
+
         Assert.Equal(5, await db.Jobs.CountAsync());
         Assert.Equal(1, await db.Jobs.CountAsync(j => j.IsRecurring));
         Assert.Equal(5, await db.JobWeekdays.CountAsync());
@@ -129,8 +135,11 @@ public sealed class DemoDataSeederApiTests : IAsyncLifetime
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+        // The four accounts that start in worker mode; the employers' worker profiles are
+        // the empty ones registration would create.
         var profiles = await db.WorkerProfiles
             .Include(p => p.Skills)
+            .Where(p => p.User!.ActiveRole == UserRole.Worker)
             .OrderBy(p => p.TotalCompletedJobs)
             .ToListAsync();
 
@@ -210,17 +219,16 @@ public sealed class DemoDataSeederApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Both_admin_queues_have_something_waiting()
+    public async Task There_is_verification_history_and_a_support_report()
     {
         await SeedAsync();
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // Without these a fresh development database shows two empty admin screens, which
-        // is the easiest thing in the app to mistake for a broken one.
+        // Approved, because that is the only state a submission produces now.
         Assert.Equal(4, await db.VerificationRequests.CountAsync(
-            v => v.Status == VerificationRequestStatus.Pending));
+            v => v.Status == VerificationRequestStatus.Approved));
 
         var report = await db.SupportReports.SingleAsync();
         Assert.False(report.IsResolved);

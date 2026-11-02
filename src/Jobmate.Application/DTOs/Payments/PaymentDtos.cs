@@ -111,7 +111,5 @@ public sealed record WalletSummaryDto
 
     public int PendingAmount { get; init; }
 
-    public int DisputedAmount { get; init; }
-
     public int EntryCount { get; init; }
 }

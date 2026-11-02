@@ -114,95 +114,6 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.ToTable("conversation_participants", "jobmate");
                 });
 
-            modelBuilder.Entity("Jobmate.Domain.Entities.Dispute", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("dispute_id");
-
-                    b.Property<Guid>("AgainstUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("against_user_id");
-
-                    b.Property<int>("Amount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("amount");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamptz")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("description");
-
-                    b.Property<Guid>("JobId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("job_id");
-
-                    b.Property<Guid>("RaisedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("raised_by_user_id");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("reason");
-
-                    b.Property<string>("Resolution")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("resolution");
-
-                    b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("timestamptz")
-                        .HasColumnName("resolved_at");
-
-                    b.Property<Guid?>("ResolvedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("resolved_by_user_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamptz")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_disputes");
-
-                    b.HasIndex("AgainstUserId")
-                        .HasDatabaseName("ix_disputes_against_user_id");
-
-                    b.HasIndex("RaisedByUserId")
-                        .HasDatabaseName("ix_disputes_raised_by_user_id");
-
-                    b.HasIndex("ResolvedByUserId")
-                        .HasDatabaseName("ix_disputes_resolved_by_user_id");
-
-                    b.HasIndex("JobId", "Status")
-                        .HasDatabaseName("ix_disputes_job_status");
-
-                    b.HasIndex("Status", "CreatedAt")
-                        .HasDatabaseName("ix_disputes_status_created");
-
-                    b.ToTable("disputes", "jobmate", t =>
-                        {
-                            t.HasCheckConstraint("chk_disputes_reason", "\"reason\" IN ('UnsafeWorkplace', 'NotPaid', 'AbusiveBehaviour', 'FakeJob', 'NoShow', 'Other')");
-
-                            t.HasCheckConstraint("chk_disputes_status", "\"status\" IN ('Open', 'UnderReview', 'Resolved', 'Rejected')");
-                        });
-                });
-
             modelBuilder.Entity("Jobmate.Domain.Entities.GiverProfile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -296,12 +207,6 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.Property<string>("VerificationStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("verification_status");
-
                     b.HasKey("Id")
                         .HasName("pk_giver_profiles");
 
@@ -309,14 +214,9 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_giver_profiles_user_id");
 
-                    b.HasIndex("VerificationStatus")
-                        .HasDatabaseName("ix_giver_profiles_verification");
-
                     b.ToTable("giver_profiles", "jobmate", t =>
                         {
                             t.HasCheckConstraint("chk_giver_profiles_kind", "\"kind\" IN ('Individual', 'Business')");
-
-                            t.HasCheckConstraint("chk_giver_profiles_verification_status", "\"verification_status\" IN ('NotVerified', 'Pending', 'Verified', 'Rejected')");
                         });
                 });
 
@@ -899,7 +799,7 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.ToTable("notifications", "jobmate", t =>
                         {
-                            t.HasCheckConstraint("chk_notifications_reference_type", "\"reference_type\" IN ('Job', 'Application', 'Assignment', 'Payment', 'Conversation', 'Dispute', 'Verification', 'None')");
+                            t.HasCheckConstraint("chk_notifications_reference_type", "\"reference_type\" IN ('Job', 'Application', 'Assignment', 'Payment', 'Conversation', 'Verification', 'None')");
 
                             t.HasCheckConstraint("chk_notifications_type", "\"type\" IN ('ApplicationUpdate', 'JobAccepted', 'JobShortlisted', 'Payment', 'JobReminder', 'NewApplicant', 'System')");
                         });
@@ -1139,7 +1039,7 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("chk_payments_payment_method", "\"payment_method\" IN ('Upi', 'Bank', 'Cash')");
 
-                            t.HasCheckConstraint("chk_payments_status", "\"status\" IN ('Pending', 'Processing', 'Paid', 'Disputed', 'Failed', 'Refunded', 'Cancelled')");
+                            t.HasCheckConstraint("chk_payments_status", "\"status\" IN ('Pending', 'Processing', 'Paid', 'Failed', 'Refunded', 'Cancelled')");
 
                             t.HasCheckConstraint("chk_payments_total_amount", "\"total_amount\" = \"amount\" + \"overtime_amount\" + \"platform_fee\"");
                         });
@@ -1376,6 +1276,12 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<string>("ActiveRole")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("active_role");
+
                     b.Property<string>("Area")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -1436,12 +1342,6 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("profile_image_url");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("role");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamptz")
                         .HasColumnName("updated_at");
@@ -1467,12 +1367,9 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_users_phone_number");
 
-                    b.HasIndex("Role", "IsActive")
-                        .HasDatabaseName("ix_users_role_active");
-
                     b.ToTable("users", "jobmate", t =>
                         {
-                            t.HasCheckConstraint("chk_users_role", "\"role\" IN ('Worker', 'WorkGiver', 'Admin')");
+                            t.HasCheckConstraint("chk_users_active_role", "\"active_role\" IN ('Worker', 'WorkGiver')");
 
                             t.HasCheckConstraint("chk_users_verification_status", "\"verification_status\" IN ('NotVerified', 'Pending', 'Verified', 'Rejected')");
                         });
@@ -1607,9 +1504,6 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ReviewedByUserId")
                         .HasDatabaseName("ix_verification_requests_reviewed_by_user_id");
-
-                    b.HasIndex("Status", "CreatedAt")
-                        .HasDatabaseName("ix_verification_requests_status_created");
 
                     b.HasIndex("UserId", "Type", "Status")
                         .HasDatabaseName("ix_verification_requests_user_type_status");
@@ -1946,12 +1840,6 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.Property<string>("VerificationStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("verification_status");
-
                     b.HasKey("Id")
                         .HasName("pk_worker_profiles");
 
@@ -1959,17 +1847,12 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_worker_profiles_user_id");
 
-                    b.HasIndex("VerificationStatus")
-                        .HasDatabaseName("ix_worker_profiles_verification");
-
                     b.HasIndex("IsAvailable", "IsOnline")
                         .HasDatabaseName("ix_worker_profiles_availability");
 
                     b.ToTable("worker_profiles", "jobmate", t =>
                         {
                             t.HasCheckConstraint("chk_worker_profiles_expected_pay_type", "\"expected_pay_type\" IN ('Fixed', 'Hourly', 'Daily', 'PerPiece')");
-
-                            t.HasCheckConstraint("chk_worker_profiles_verification_status", "\"verification_status\" IN ('NotVerified', 'Pending', 'Verified', 'Rejected')");
                         });
                 });
 
@@ -2040,44 +1923,6 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.Navigation("Conversation");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Jobmate.Domain.Entities.Dispute", b =>
-                {
-                    b.HasOne("Jobmate.Domain.Entities.User", "AgainstUser")
-                        .WithMany()
-                        .HasForeignKey("AgainstUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_disputes_against_user_id");
-
-                    b.HasOne("Jobmate.Domain.Entities.Job", "Job")
-                        .WithMany("Disputes")
-                        .HasForeignKey("JobId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_disputes_job_id");
-
-                    b.HasOne("Jobmate.Domain.Entities.User", "RaisedBy")
-                        .WithMany()
-                        .HasForeignKey("RaisedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_disputes_raised_by_user_id");
-
-                    b.HasOne("Jobmate.Domain.Entities.User", "ResolvedBy")
-                        .WithMany()
-                        .HasForeignKey("ResolvedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_disputes_resolved_by_user_id");
-
-                    b.Navigation("AgainstUser");
-
-                    b.Navigation("Job");
-
-                    b.Navigation("RaisedBy");
-
-                    b.Navigation("ResolvedBy");
                 });
 
             modelBuilder.Entity("Jobmate.Domain.Entities.GiverProfile", b =>
@@ -2436,8 +2281,6 @@ namespace Jobmate.Infrastructure.Persistence.Migrations
                     b.Navigation("Applications");
 
                     b.Navigation("Assignments");
-
-                    b.Navigation("Disputes");
 
                     b.Navigation("Payments");
 

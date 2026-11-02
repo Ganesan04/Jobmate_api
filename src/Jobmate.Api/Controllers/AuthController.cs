@@ -27,9 +27,9 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
     /// POST /api/v1/auth/register — creates an unverified account and sends the OTP.
     /// </summary>
     /// <remarks>
-    /// The Flutter flow is register → /otp → role selection → profile setup, so this
-    /// endpoint returns <c>requiresOtpVerification: true</c> and a token pair that
-    /// the app stores while the code is entered.
+    /// No role is chosen: the account gets both a worker and a work giver profile and
+    /// starts in worker mode. Returns <c>requiresOtpVerification: true</c> and a token
+    /// pair that the app stores while the code is entered.
     /// </remarks>
     [HttpPost("register")]
     [AllowAnonymous]
@@ -58,10 +58,32 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await mediator.Send(
-            new VerifyOtpCommand(request.Phone, request.Code, request.Role),
+            new VerifyOtpCommand(request.Phone, request.Code),
             cancellationToken);
 
         return Ok(new ApiResponse<AuthResultDto>(result, "Phone number verified."));
+    }
+
+    /// <summary>POST /api/v1/auth/switch-role — moves the caller into worker or work giver mode.</summary>
+    /// <remarks>
+    /// Every account can both work and hire. The body is <c>{ "role": "worker" }</c> or
+    /// <c>{ "role": "workGiver" }</c>. Returns a new token pair whose role claim is the new
+    /// mode; the app must replace its stored tokens, because the old access token still
+    /// carries the old mode. Switching to the current mode just returns fresh tokens.
+    /// </remarks>
+    [HttpPost("switch-role")]
+    [Authorize]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<ApiResponse<AuthResultDto>>> SwitchRole(
+        [FromBody] SwitchRoleRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var result = await mediator.Send(new SwitchRoleCommand(request?.Role), cancellationToken);
+
+        return Ok(new ApiResponse<AuthResultDto>(result, "Switched mode."));
     }
 
     /// <summary>POST /api/v1/auth/resend-otp — issues a fresh code, superseding any outstanding one.</summary>
@@ -179,6 +201,5 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
         request.Phone,
         request.Email,
         request.Password,
-        request.Role,
         request.Area);
 }

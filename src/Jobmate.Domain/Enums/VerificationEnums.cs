@@ -24,12 +24,11 @@ public enum VerificationType
 }
 
 /// <summary>
-/// Admin decision on a <c>VerificationRequest</c>.
+/// State of a <c>VerificationRequest</c>. New requests are approved on submission;
+/// pending, rejected and withdrawn remain for rows created before that.
 ///
-/// <see cref="Withdrawn"/> is the applicant taking a pending request back. It is stored in
-/// the same column as the other three (the column is a string conversion, so no migration
-/// is involved) and exists so a withdrawal is never recorded as a rejection: the user
-/// chose to stop, nobody refused them.
+/// <see cref="Withdrawn"/> is the applicant taking a pending request back, kept apart
+/// from a rejection: the user chose to stop, nobody refused them.
 /// </summary>
 public enum VerificationRequestStatus
 {
@@ -39,16 +38,7 @@ public enum VerificationRequestStatus
     Withdrawn = 4
 }
 
-/// <summary>Dispute lifecycle. Matches Flutter <c>DisputeStatus</c>.</summary>
-public enum DisputeStatus
-{
-    Open = 1,
-    UnderReview = 2,
-    Resolved = 3,
-    Rejected = 4
-}
-
-/// <summary>Why a dispute or safety report was raised. Matches Flutter <c>ReportReason</c>.</summary>
+/// <summary>Why a safety report was raised. Matches Flutter <c>ReportReason</c>.</summary>
 public enum ReportReason
 {
     UnsafeWorkplace = 1,

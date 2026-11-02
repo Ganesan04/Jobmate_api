@@ -47,9 +47,9 @@ public static class SchemaConventions
 
             foreach (var index in entity.GetIndexes())
             {
-                // Keeps a hand-picked name's meaning ("ix_disputes_job_status") and only
-                // normalises the prefix, so EF's "IX_disputes_against_user_id" and a
-                // unique index misnamed "ix_" both come out right.
+                // Keeps a hand-picked name's meaning ("ix_users_area") and only normalises
+                // the prefix, so EF's "IX_payments_giver_user_id" and a unique index
+                // misnamed "ix_" both come out right.
                 var name = index.GetDatabaseName() ?? $"ix_{table}";
                 index.SetDatabaseName((index.IsUnique ? "ux_" : "ix_") + name[3..].ToLowerInvariant());
             }

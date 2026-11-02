@@ -265,7 +265,7 @@ public sealed class GetGiverStatsQueryHandler(
 
 /// <summary>
 /// Counts behind the worker home screen: how many applications are open, how many jobs
-/// are booked, and what has been earned, is pending or is disputed.
+/// are booked, and what has been earned or is pending.
 /// </summary>
 public sealed record GetWorkerStatsQuery : IRequest<WorkerStatsDto>;
 
@@ -302,8 +302,6 @@ public sealed class GetWorkerStatsQueryHandler(
                 Earned = g.Where(p => p.Status == PaymentStatus.Paid)
                     .Sum(p => (int?)(p.Amount + p.OvertimeAmount - p.PlatformFee)) ?? 0,
                 Pending = g.Where(p => p.Status == PaymentStatus.Pending || p.Status == PaymentStatus.Processing)
-                    .Sum(p => (int?)(p.Amount + p.OvertimeAmount - p.PlatformFee)) ?? 0,
-                Disputed = g.Where(p => p.Status == PaymentStatus.Disputed)
                     .Sum(p => (int?)(p.Amount + p.OvertimeAmount - p.PlatformFee)) ?? 0
             })
             .FirstOrDefaultAsync(cancellationToken);
@@ -314,8 +312,7 @@ public sealed class GetWorkerStatsQueryHandler(
             Active = active,
             Completed = completed,
             Earnings = totals?.Earned ?? 0,
-            PendingAmount = totals?.Pending ?? 0,
-            DisputedAmount = totals?.Disputed ?? 0
+            PendingAmount = totals?.Pending ?? 0
         };
     }
 }

@@ -28,8 +28,10 @@ dotnet user-secrets set "ConnectionStrings:ReadConnection" "Host=localhost;Port=
 dotnet user-secrets set "Jwt:Issuer" "jobmate-api"
 dotnet user-secrets set "Jwt:Audience" "jobmate-app"
 dotnet user-secrets set "Jwt:SigningKey" "<at least 32 random bytes>"
-dotnet user-secrets set "Seed:AdminPassword" "<initial password for admin@jobmate.app>"
 ```
+
+Every account is both a worker and a work giver. It starts in worker mode and switches
+with `POST /api/v1/auth/switch-role`, which returns a new token pair carrying the new role.
 
 Apply migrations and run:
 

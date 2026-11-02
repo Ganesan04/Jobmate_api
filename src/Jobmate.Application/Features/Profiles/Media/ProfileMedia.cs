@@ -14,8 +14,7 @@ namespace Jobmate.Application.Features.Profiles.Media;
 ///
 /// The file is written by the API before this command runs; the row here is what makes it
 /// findable again. It starts <see cref="VerificationStatus.Pending"/> and is not evidence
-/// of anything on its own — it becomes a verified document when an admin approves the
-/// verification request that points at it.
+/// of anything on its own; the verification request that points at it is what counts.
 /// </summary>
 public sealed record AddWorkerDocumentCommand(
     VerificationType Type,
@@ -73,8 +72,8 @@ public sealed record DocumentAccessDto(Guid OwnerUserId);
 /// Decides whether the caller may read one stored document. Used by
 /// GET /api/v1/media/documents/{fileName} before the bytes are streamed.
 ///
-/// A document backs a KYC decision, so it is not public: only the worker it belongs to and
-/// an admin reviewing it may read it. The file name alone is not enough to identify the
+/// A document backs a KYC check, so it is not public: only the person it belongs to may
+/// read it. The file name alone is not enough to identify the
 /// row, so the lookup is by the stored file name — which is generated, so it cannot be
 /// guessed from a sequence.
 ///
@@ -103,7 +102,7 @@ public sealed class GetDocumentAccessQueryHandler(
         // A 403 here would confirm that the file exists, which turns this endpoint into a
         // way for any signed-in user to probe which documents have been uploaded; the
         // generated name is unguessable, but "not found" costs nothing and closes that off.
-        if (ownerId == Guid.Empty || (ownerId != callerId && !currentUser.IsInRole(nameof(UserRole.Admin))))
+        if (ownerId == Guid.Empty || ownerId != callerId)
         {
             throw new NotFoundException("That file does not exist.");
         }

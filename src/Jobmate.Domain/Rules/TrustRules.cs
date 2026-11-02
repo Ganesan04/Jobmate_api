@@ -4,93 +4,14 @@ using Jobmate.Domain.Exceptions;
 
 namespace Jobmate.Domain.Rules;
 
-/// <summary>Dispute rules. Only participants of the referenced booking may raise or comment.</summary>
-public static class DisputeRules
-{
-    public static Dispute Create(
-        Job job,
-        User raiser,
-        ReportReason reason,
-        string description,
-        int amount,
-        DateTime now)
-    {
-        if (!RatingRules.IsParticipant(job, raiser.Id))
-        {
-            throw new ForbiddenException("Only participants of this job can raise a dispute.");
-        }
-
-        var counterpartId = job.GiverId == raiser.Id
-            ? job.Assignments.FirstOrDefault(a => a.Status != AssignmentStatus.Cancelled)?.WorkerId
-            : job.GiverId;
-
-        if (counterpartId is null || counterpartId == raiser.Id)
-        {
-            throw new BusinessRuleException("There is no other participant to raise a dispute against.", "NoCounterpart");
-        }
-
-        if (string.IsNullOrWhiteSpace(description) || description.Trim().Length < 10)
-        {
-            throw new BusinessRuleException("Describe the problem in at least 10 characters.", "DescriptionTooShort");
-        }
-
-        if (amount < 0)
-        {
-            throw new BusinessRuleException("Disputed amount cannot be negative.", "AmountInvalid");
-        }
-
-        return new Dispute
-        {
-            JobId = job.Id,
-            RaisedByUserId = raiser.Id,
-            AgainstUserId = counterpartId.Value,
-            Reason = reason,
-            Description = description.Trim(),
-            Amount = amount,
-            Status = DisputeStatus.Open,
-            CreatedAt = now
-        };
-    }
-
-    public static bool CanTransition(DisputeStatus from, DisputeStatus to) => (from, to) switch
-    {
-        (DisputeStatus.Open, DisputeStatus.UnderReview) => true,
-        (DisputeStatus.Open, DisputeStatus.Resolved) => true,
-        (DisputeStatus.Open, DisputeStatus.Rejected) => true,
-        (DisputeStatus.UnderReview, DisputeStatus.Resolved) => true,
-        (DisputeStatus.UnderReview, DisputeStatus.Rejected) => true,
-        _ => false
-    };
-
-    public static void Resolve(Dispute dispute, DisputeStatus target, string? resolution, Guid adminId, DateTime now)
-    {
-        if (target is not (DisputeStatus.Resolved or DisputeStatus.Rejected))
-        {
-            throw new BusinessRuleException("A dispute can only be resolved or rejected.", "InvalidDisputeStatus");
-        }
-
-        if (!CanTransition(dispute.Status, target))
-        {
-            throw new BusinessRuleException(
-                $"A {dispute.Status.ToString().ToLowerInvariant()} dispute cannot be {target.ToString().ToLowerInvariant()}.",
-                "InvalidDisputeTransition");
-        }
-
-        if (string.IsNullOrWhiteSpace(resolution))
-        {
-            throw new BusinessRuleException("Add resolution notes before closing a dispute.", "ResolutionRequired");
-        }
-
-        dispute.Status = target;
-        dispute.Resolution = resolution.Trim();
-        dispute.ResolvedByUserId = adminId;
-        dispute.ResolvedAt = now;
-    }
-}
-
-/// <summary>Verification request rules and the projection of a decision onto profiles.</summary>
+/// <summary>Verification request rules and the projection of a request onto the badge.</summary>
 public static class VerificationRules
 {
+    /// <summary>
+    /// Raises a verification request, approved on the spot. There is no reviewer: the
+    /// request is the person's own declaration, and the badge it feeds is the person's,
+    /// shown the same way in worker and work giver mode.
+    /// </summary>
     public static VerificationRequest Create(User user, VerificationType type, string? documentName, string? note, DateTime now)
     {
         if (type == VerificationType.Phone && !user.PhoneNumber.StartsWith("+91", StringComparison.Ordinal))
@@ -107,49 +28,13 @@ public static class VerificationRules
         {
             UserId = user.Id,
             Type = type,
-            Status = VerificationRequestStatus.Pending,
+            Status = VerificationRequestStatus.Approved,
             DocumentName = documentName?.Trim(),
             Note = note?.Trim(),
+            ReviewedAt = now,
+            ReviewedByUserId = null,
             CreatedAt = now
         };
-    }
-
-    public static bool CanTransition(VerificationRequestStatus from, VerificationRequestStatus to) => (from, to) switch
-    {
-        (VerificationRequestStatus.Pending, VerificationRequestStatus.Approved) => true,
-        (VerificationRequestStatus.Pending, VerificationRequestStatus.Rejected) => true,
-        _ => false
-    };
-
-    public static void Approve(VerificationRequest request, Guid adminId, DateTime now)
-    {
-        if (!CanTransition(request.Status, VerificationRequestStatus.Approved))
-        {
-            throw new BusinessRuleException("This request has already been reviewed.", "AlreadyReviewed");
-        }
-
-        request.Status = VerificationRequestStatus.Approved;
-        request.ReviewedByUserId = adminId;
-        request.ReviewedAt = now;
-        request.RejectionReason = null;
-    }
-
-    public static void Reject(VerificationRequest request, Guid adminId, string reason, DateTime now)
-    {
-        if (!CanTransition(request.Status, VerificationRequestStatus.Rejected))
-        {
-            throw new BusinessRuleException("This request has already been reviewed.", "AlreadyReviewed");
-        }
-
-        if (string.IsNullOrWhiteSpace(reason))
-        {
-            throw new BusinessRuleException("Add a reason so the applicant can fix the issue.", "RejectionReasonRequired");
-        }
-
-        request.Status = VerificationRequestStatus.Rejected;
-        request.ReviewedByUserId = adminId;
-        request.ReviewedAt = now;
-        request.RejectionReason = reason.Trim();
     }
 
     /// <summary>

@@ -1,4 +1,3 @@
-using Jobmate.Application.DTOs.Admin;
 using Jobmate.Domain.Common;
 using Jobmate.Domain.Enums;
 
@@ -42,9 +41,7 @@ public sealed record VerificationSummaryDto
 }
 
 /// <summary>
-/// One verification request as its owner sees it. The admin view is
-/// <see cref="AdminVerificationRequestDto"/>, which adds the reviewer's name and the
-/// applicant's phone number because an admin is deciding on their behalf.
+/// One verification request as its owner sees it.
 /// </summary>
 public sealed record VerificationRequestDto
 {

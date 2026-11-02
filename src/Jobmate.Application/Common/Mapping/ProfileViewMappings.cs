@@ -31,7 +31,7 @@ public static class ProfileViewMappings
         {
             Id = user.Id,
             Name = user.FullName,
-            Role = user.Role,
+            Role = user.ActiveRole,
             Area = user.Area,
             Skills = worker is null
                 ? []

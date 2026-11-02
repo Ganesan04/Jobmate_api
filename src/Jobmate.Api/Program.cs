@@ -319,15 +319,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seeds the initial admin account on first run. It is a no-op once an admin exists,
-// so it is safe to leave in place for every environment.
-using (var scope = app.Services.CreateScope())
-{
-    var seeder = scope.ServiceProvider.GetRequiredService<AdminSeeder>();
-
-    await seeder.SeedAsync();
-}
-
 // A small demonstration marketplace, so a development build can be clicked through
 // without posting a wizard six times first. Gated on both the Development environment
 // and Seed:DemoData, and a no-op in every other case.

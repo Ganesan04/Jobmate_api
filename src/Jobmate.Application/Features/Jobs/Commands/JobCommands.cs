@@ -414,7 +414,7 @@ public sealed class UpdateJobCommandHandler(
             skills: job.Skills.Select(s => s.Name).ToList());
     }
 
-    /// <summary>Only the posting's owner, or an admin, may change it.</summary>
+    /// <summary>Only the posting's owner may change it.</summary>
     internal static void EnsureOwner(Job job, Guid callerId)
     {
         if (job.GiverId == callerId)
@@ -491,13 +491,6 @@ public sealed class CancelJobCommandHandler(
 
         UpdateJobCommandHandler.EnsureOwner(job, callerId);
 
-        // The caller is a giver, so the administration check inside the rule can only
-        // be satisfied by a genuine posting owner.
-        if (job.GiverId != callerId)
-        {
-            throw new ForbiddenException("Only the person who posted this job can cancel it.");
-        }
-
         JobLifecycle.Cancel(job, CreateJobCommandHandler.NullIfBlank(request.Request.Reason), now);
 
         // Applicants and booked workers both have to be told, or the app would show a
@@ -563,11 +556,9 @@ public sealed class CancelJobCommandHandler(
 
         foreach (var payment in job.Payments)
         {
-            // Disputed money follows the same path as settled money: the dispute is
-            // resolved in the giver's favour by the refund.
             var target = payment.Status switch
             {
-                PaymentStatus.Paid or PaymentStatus.Disputed => PaymentStatus.Refunded,
+                PaymentStatus.Paid => PaymentStatus.Refunded,
                 // Never captured, so there is nothing to send back.
                 PaymentStatus.Pending => PaymentStatus.Cancelled,
                 _ => (PaymentStatus?)null

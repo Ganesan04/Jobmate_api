@@ -10,8 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Jobmate.Api.Controllers;
 
 /// <summary>
-/// Money: releasing pay for a booking, listing the caller's payments, and the
-/// administrator's refund.
+/// Money: releasing pay for a booking and listing the caller's payments.
 ///
 /// Creating a payment hangs off the job route, because the app releases pay from a
 /// job and names the worker: POST /jobs/{jobId}/payments/{workerId}. The remaining
@@ -26,8 +25,8 @@ public sealed class PaymentController(IMediator mediator) : ControllerBase
 {
     /// <summary>GET /api/v1/payments — the caller's own payments, newest first.</summary>
     /// <remarks>
-    /// Scoped by role: a giver sees what they paid out, a worker what they received, an
-    /// administrator everything. Optional filters: <c>statuses</c>, <c>jobId</c>,
+    /// Scoped by the active role: in giver mode the caller sees what they paid out, in
+    /// worker mode what they received. Optional filters: <c>statuses</c>, <c>jobId</c>,
     /// <c>workerId</c>, <c>from</c>, <c>to</c>.
     /// </remarks>
     [HttpGet]
@@ -65,30 +64,6 @@ public sealed class PaymentController(IMediator mediator) : ControllerBase
             cancellationToken);
 
         return Ok(new ApiResponse<PaymentReceiptDto>(receipt, "Payment confirmed."));
-    }
-
-    /// <summary>POST /api/v1/payments/{id}/refund — reverses a settled payment. Administrator only.</summary>
-    /// <remarks>
-    /// Deliberately not available to the giver or the worker: reversing a charge moves
-    /// money back out of the platform, so only an administrator can do it and the
-    /// reason is recorded on the payment.
-    /// </remarks>
-    [HttpPost("{id:guid}/refund")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<PaymentReceiptDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<PaymentReceiptDto>>> Refund(
-        Guid id,
-        [FromBody] RefundPaymentRequest? request,
-        CancellationToken cancellationToken)
-    {
-        var receipt = await mediator.Send(
-            new RefundPaymentCommand(id, request ?? new RefundPaymentRequest()),
-            cancellationToken);
-
-        return Ok(new ApiResponse<PaymentReceiptDto>(receipt, "Payment refunded."));
     }
 }
 
@@ -132,7 +107,7 @@ public sealed class WorkerEarningsController(IMediator mediator) : ControllerBas
         return Ok(new ApiResponse<List<EarningSummaryDto>>(summary, "Earning summary."));
     }
 
-    /// <summary>GET /api/v1/worker/wallet — earned, pending and disputed totals.</summary>
+    /// <summary>GET /api/v1/worker/wallet — earned and pending totals.</summary>
     [HttpGet("wallet")]
     [ProducesResponseType(typeof(ApiResponse<WalletSummaryDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<WalletSummaryDto>>> Wallet(CancellationToken cancellationToken)

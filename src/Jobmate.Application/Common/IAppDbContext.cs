@@ -35,7 +35,6 @@ public interface IAppDbContext
     DbSet<Notification> Notifications { get; }
     DbSet<UserDevice> UserDevices { get; }
     DbSet<VerificationRequest> VerificationRequests { get; }
-    DbSet<Dispute> Disputes { get; }
     DbSet<SavedJob> SavedJobs { get; }
     DbSet<SupportReport> SupportReports { get; }
 
@@ -91,7 +90,7 @@ public static class QueryableExtensions
 }
 
 /// <summary>
-/// Helpers for the admin search boxes.
+/// Helpers for the text search boxes.
 ///
 /// <para>
 /// Written against <c>EF.Functions.Like</c> rather than a provider-specific helper so

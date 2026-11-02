@@ -22,7 +22,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.PhoneNumber).HasColumnName("phone_number").HasMaxLength(20).IsRequired();
         builder.Property(u => u.PasswordHash).HasColumnName("password_hash").HasMaxLength(255).IsRequired();
-        builder.Property(u => u.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(u => u.ActiveRole).HasColumnName("active_role").HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(u => u.ProfileImageUrl).HasColumnName("profile_image_url").HasMaxLength(500);
         builder.Property(u => u.IsActive).HasColumnName("is_active").HasDefaultValue(true);
         builder.Property(u => u.IsVerified).HasColumnName("is_verified").HasDefaultValue(false);
@@ -35,8 +35,6 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(u => u.Email).IsUnique().HasFilter("email IS NOT NULL").HasDatabaseName("ix_users_email");
         builder.HasIndex(u => u.PhoneNumber).IsUnique().HasDatabaseName("ix_users_phone_number");
 
-        // Supports the admin user list (role + active) and the search-by-name screen.
-        builder.HasIndex(u => new { u.Role, u.IsActive }).HasDatabaseName("ix_users_role_active");
         builder.HasIndex(u => u.Area).HasDatabaseName("ix_users_area");
 
         // A user has at most one profile; enforced here so a hand-rolled insert cannot

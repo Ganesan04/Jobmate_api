@@ -1,4 +1,3 @@
-using Jobmate.Application.DTOs.Admin;
 using Jobmate.Application.DTOs.Verifications;
 using Jobmate.Domain.Entities;
 using Jobmate.Domain.Enums;
@@ -60,35 +59,9 @@ public static class TrustMappings
     };
 
     /// <summary>
-    /// The admin view of a request, including the applicant and the reviewer.
+    /// A request's status as the coarse badge value the app filters on.
     ///
-    /// The applicant's phone number is here because an admin verifying an identity
-    /// document has to be able to call them, and this is the one screen where that is
-    /// appropriate. It is deliberately absent from every user-facing projection.
-    /// </summary>
-    public static AdminVerificationRequestDto ToAdminDto(this VerificationRequest request) => new()
-    {
-        Id = request.Id,
-        UserId = request.UserId,
-        UserName = request.User?.FullName ?? string.Empty,
-        UserRole = request.User?.Role ?? UserRole.Worker,
-        Type = request.Type,
-        SubmittedAt = request.CreatedAt,
-        Status = ToBadgeStatus(request.Status),
-        Document = request.DocumentName ?? string.Empty,
-        Note = request.Note,
-        RejectionReason = request.RejectionReason,
-        ReviewedAt = request.ReviewedAt,
-        ReviewedBy = request.ReviewedBy?.FullName,
-        UserPhone = request.User?.PhoneNumber ?? string.Empty
-    };
-
-    /// <summary>
-    /// A request's admin-side status as the coarse badge value the app filters on.
-    ///
-    /// A withdrawn request reads as not verified rather than rejected: nobody refused it,
-    /// and showing it in the rejection queue would send an admin looking for a reason that
-    /// does not exist.
+    /// A withdrawn request reads as not verified rather than rejected: nobody refused it.
     /// </summary>
     public static VerificationStatus ToBadgeStatus(this VerificationRequestStatus status) => status switch
     {

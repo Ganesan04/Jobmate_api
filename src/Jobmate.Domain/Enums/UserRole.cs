@@ -1,13 +1,11 @@
 namespace Jobmate.Domain.Enums;
 
 /// <summary>
-/// Platform roles. A single role per user; worker and work giver are the consumer
-/// roles, admin is the internal console role and is never exposed to consumers.
-/// Serialised to JSON as camelCase: worker, workGiver, admin.
+/// The two modes of an account. Every user can be both; <c>User.ActiveRole</c> holds
+/// the one they are currently in. Serialised to JSON as camelCase: worker, workGiver.
 /// </summary>
 public enum UserRole
 {
     Worker = 1,
-    WorkGiver = 2,
-    Admin = 3
+    WorkGiver = 2
 }

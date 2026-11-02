@@ -92,21 +92,3 @@ public sealed class ConfirmPaymentCommandValidator : AbstractValidator<ConfirmPa
             .When(x => x.Request.TransactionReference is not null);
     }
 }
-
-/// <summary>A refund has to say why: the reason is the audit trail for money going back.</summary>
-public sealed class RefundPaymentCommandValidator : AbstractValidator<RefundPaymentCommand>
-{
-    public RefundPaymentCommandValidator()
-    {
-        RuleFor(x => x.PaymentId)
-            .NotEmpty()
-            .WithMessage("A payment is required.")
-            .WithName("id");
-
-        RuleFor(x => x.Request.Reason)
-            .NotEmpty()
-            .WithMessage("Give a reason for the refund.")
-            .MaximumLength(500)
-            .WithMessage("Keep the refund reason under 500 characters.");
-    }
-}

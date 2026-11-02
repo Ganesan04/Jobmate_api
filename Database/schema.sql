@@ -637,5 +637,74 @@ CREATE UNIQUE INDEX ux_worker_skills_profile_name ON jobmate.worker_skills (work
 INSERT INTO jobmate.__ef_migrations_history ("MigrationId", "ProductVersion")
 VALUES ('20260929174703_InitialSchema', '9.0.4');
 
+DROP TABLE jobmate.disputes;
+
+DROP INDEX jobmate.ix_worker_profiles_verification;
+
+ALTER TABLE jobmate.worker_profiles DROP CONSTRAINT chk_worker_profiles_verification_status;
+
+DROP INDEX jobmate.ix_verification_requests_status_created;
+
+DROP INDEX jobmate.ix_users_role_active;
+
+ALTER TABLE jobmate.users DROP CONSTRAINT chk_users_role;
+
+ALTER TABLE jobmate.payments DROP CONSTRAINT chk_payments_status;
+
+ALTER TABLE jobmate.notifications DROP CONSTRAINT chk_notifications_reference_type;
+
+DROP INDEX jobmate.ix_giver_profiles_verification;
+
+ALTER TABLE jobmate.giver_profiles DROP CONSTRAINT chk_giver_profiles_verification_status;
+
+ALTER TABLE jobmate.worker_profiles DROP COLUMN verification_status;
+
+ALTER TABLE jobmate.giver_profiles DROP COLUMN verification_status;
+
+ALTER TABLE jobmate.users RENAME COLUMN role TO active_role;
+
+UPDATE jobmate.verification_requests SET reviewed_by_user_id = NULL
+WHERE reviewed_by_user_id IN (SELECT user_id FROM jobmate.users WHERE active_role = 'Admin');
+
+UPDATE jobmate.worker_documents SET reviewed_by_user_id = NULL
+WHERE reviewed_by_user_id IN (SELECT user_id FROM jobmate.users WHERE active_role = 'Admin');
+
+DELETE FROM jobmate.refresh_tokens
+WHERE user_id IN (SELECT user_id FROM jobmate.users WHERE active_role = 'Admin');
+
+DELETE FROM jobmate.user_devices
+WHERE user_id IN (SELECT user_id FROM jobmate.users WHERE active_role = 'Admin');
+
+DELETE FROM jobmate.users WHERE active_role = 'Admin';
+
+UPDATE jobmate.payments SET status = 'Paid', updated_at = now()
+WHERE status = 'Disputed';
+
+UPDATE jobmate.notifications
+SET reference_type = 'None', reference_id = NULL, route = NULL, updated_at = now()
+WHERE reference_type = 'Dispute';
+
+INSERT INTO jobmate.worker_profiles (worker_profile_id, user_id, location, created_at, updated_at)
+SELECT gen_random_uuid(), u.user_id, NULLIF(u.area, ''), now(), now()
+FROM jobmate.users u
+WHERE NOT EXISTS (SELECT 1 FROM jobmate.worker_profiles p WHERE p.user_id = u.user_id);
+
+INSERT INTO jobmate.giver_profiles (giver_profile_id, user_id, kind, business_name, contact_person, location, created_at, updated_at)
+SELECT gen_random_uuid(), u.user_id, 'Individual',
+       btrim(u.first_name || ' ' || u.last_name),
+       NULLIF(btrim(u.first_name || ' ' || u.last_name), ''),
+       NULLIF(u.area, ''), now(), now()
+FROM jobmate.users u
+WHERE NOT EXISTS (SELECT 1 FROM jobmate.giver_profiles p WHERE p.user_id = u.user_id);
+
+ALTER TABLE jobmate.users ADD CONSTRAINT chk_users_active_role CHECK ("active_role" IN ('Worker', 'WorkGiver'));
+
+ALTER TABLE jobmate.payments ADD CONSTRAINT chk_payments_status CHECK ("status" IN ('Pending', 'Processing', 'Paid', 'Failed', 'Refunded', 'Cancelled'));
+
+ALTER TABLE jobmate.notifications ADD CONSTRAINT chk_notifications_reference_type CHECK ("reference_type" IN ('Job', 'Application', 'Assignment', 'Payment', 'Conversation', 'Verification', 'None'));
+
+INSERT INTO jobmate.__ef_migrations_history ("MigrationId", "ProductVersion")
+VALUES ('20261102152755_DualRoleWithoutAdmin', '9.0.4');
+
 COMMIT;
 
